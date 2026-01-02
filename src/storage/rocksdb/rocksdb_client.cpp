@@ -1,4 +1,4 @@
-#include "storage/rocksdb_client.h"
+#include "storage/rocksdb/rocksdb_client.h"
 #include <rocksdb/db.h>
 #include <rocksdb/options.h>
 #include <rocksdb/write_batch.h>
@@ -7,9 +7,6 @@
 
 namespace search {
 
-//=============================================================================
-// Constructor / Destructor
-//=============================================================================
 RocksDBClient::RocksDBClient() = default;
 
 RocksDBClient::~RocksDBClient() {
@@ -36,9 +33,6 @@ RocksDBClient& RocksDBClient::operator=(RocksDBClient&& other) noexcept {
     return *this;
 }
 
-//=============================================================================
-// Database setup (2.3.1)
-//=============================================================================
 bool RocksDBClient::open(const std::string& path) {
     return open(path, true, true);
 }
@@ -52,19 +46,16 @@ bool RocksDBClient::open(const std::string& path, bool create_if_missing,
     rocksdb::Options options;
     options.create_if_missing = create_if_missing;
     
-    // Performance tuning
     options.write_buffer_size = 64 * 1024 * 1024;  // 64MB write buffer
     options.max_write_buffer_number = 3;
     options.target_file_size_base = 64 * 1024 * 1024;  // 64MB SST files
     
-    // Compression
     if (compression_enabled) {
         options.compression = rocksdb::kLZ4Compression;
     } else {
         options.compression = rocksdb::kNoCompression;
     }
     
-    // Open the database
     rocksdb::Status status = rocksdb::DB::Open(options, path, &db_);
     
     if (!status.ok()) {
@@ -88,9 +79,6 @@ void RocksDBClient::close() {
     path_.clear();
 }
 
-//=============================================================================
-// Basic operations (2.3.2)
-//=============================================================================
 bool RocksDBClient::put(const std::string& key, const std::string& value) {
     if (!db_) {
         last_error_ = "Database not open";
@@ -159,9 +147,6 @@ bool RocksDBClient::exists(const std::string& key) {
     return status.ok();
 }
 
-//=============================================================================
-// Batch operations (2.3.3)
-//=============================================================================
 void RocksDBClient::begin_batch() {
     batch_ = std::make_unique<rocksdb::WriteBatch>();
 }
@@ -201,9 +186,6 @@ void RocksDBClient::rollback_batch() {
     batch_.reset();
 }
 
-//=============================================================================
-// Iteration (2.3.4)
-//=============================================================================
 void RocksDBClient::iterate_prefix(const std::string& prefix,
                                    std::function<bool(const std::string&, const std::string&)> callback) {
     if (!db_) {
@@ -216,14 +198,11 @@ void RocksDBClient::iterate_prefix(const std::string& prefix,
     for (it->Seek(prefix); it->Valid(); it->Next()) {
         std::string key = it->key().ToString();
         
-        // Check if still within prefix
         if (key.compare(0, prefix.size(), prefix) != 0) {
             break;
         }
         
-        std::string value = it->value().ToString();
-        
-        // Call the callback, stop if it returns false
+        std::string value = it->value().ToString();        
         if (!callback(key, value)) {
             break;
         }
@@ -235,7 +214,7 @@ std::vector<std::string> RocksDBClient::get_keys_with_prefix(const std::string& 
     
     iterate_prefix(prefix, [&keys](const std::string& key, const std::string&) {
         keys.push_back(key);
-        return true;  // Continue iteration
+        return true;
     });
     
     return keys;
@@ -246,7 +225,7 @@ std::vector<std::pair<std::string, std::string>> RocksDBClient::get_all_with_pre
     
     iterate_prefix(prefix, [&results](const std::string& key, const std::string& value) {
         results.emplace_back(key, value);
-        return true;  // Continue iteration
+        return true;
     });
     
     return results;
@@ -257,15 +236,12 @@ size_t RocksDBClient::count_prefix(const std::string& prefix) {
     
     iterate_prefix(prefix, [&count](const std::string&, const std::string&) {
         ++count;
-        return true;  // Continue iteration
+        return true;
     });
     
     return count;
 }
 
-//=============================================================================
-// Utility
-//=============================================================================
 void RocksDBClient::compact() {
     if (db_) {
         db_->CompactRange(nullptr, nullptr);

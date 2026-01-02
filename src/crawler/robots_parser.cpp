@@ -27,28 +27,23 @@ namespace search {
         while (std::getline(ss, line)) {
             std::string_view trimmed = trim_view(line);
             
-            // Skip empty lines and comments
             if (trimmed.empty() || trimmed[0] == '#') {
                 continue;
             }
             
-            // Find the colon separator
             auto colon_pos = trimmed.find(':');
             if (colon_pos == std::string_view::npos) {
                 continue;
             }
             
-            // Extract directive and value
             std::string directive(trim_view(trimmed.substr(0, colon_pos)));
             std::string value(trim_view(trimmed.substr(colon_pos + 1)));
 
-            // Strip inline comments from value
             auto comment_pos = value.find('#');
             if (comment_pos != std::string::npos) {
                 value = std::string(trim_view(std::string_view(value).substr(0, comment_pos)));
             }
             
-            // Normalize directive to lowercase
             normalize_agent(directive);
             
             if (directive == "user-agent") {
@@ -61,10 +56,8 @@ namespace search {
                 std::string agent = value;
                 normalize_agent(agent);
                 
-                // Add to current group of agents
                 current_agents.push_back(agent);
                 
-                // Create entry if it doesn't exist
                 if (!rules_.contains(agent)) {
                     rules_[agent] = AgentRules{};
                 }
@@ -196,7 +189,7 @@ namespace search {
 
     bool RobotsParser::is_allowed_url(const std::string& url, HTTPFetcher& fetcher,
                                     const std::string& bot_name) {
-        fetch(url, fetcher);  // Ensures robots.txt is loaded
+        fetch(url, fetcher);
         std::string path = extract_path(url);
         return is_allowed(path, bot_name);
     }

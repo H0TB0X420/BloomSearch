@@ -5,9 +5,6 @@
 
 namespace search {
 
-//=============================================================================
-// Constructor / Destructor
-//=============================================================================
 RedisClient::RedisClient() = default;
 
 RedisClient::~RedisClient() {
@@ -38,9 +35,6 @@ RedisClient& RedisClient::operator=(RedisClient&& other) noexcept {
     return *this;
 }
 
-//=============================================================================
-// Connection (2.5.1)
-//=============================================================================
 bool RedisClient::connect() {
     const char* host = std::getenv("REDIS_HOST");
     const char* port_str = std::getenv("REDIS_PORT");
@@ -109,9 +103,6 @@ bool RedisClient::ping() {
     return ok;
 }
 
-//=============================================================================
-// Basic Operations (2.5.2)
-//=============================================================================
 bool RedisClient::set(const std::string& key, const std::string& value) {
     if (!connected_) {
         last_error_ = "Not connected";
@@ -253,16 +244,12 @@ int RedisClient::ttl(const std::string& key) {
     return result;
 }
 
-//=============================================================================
-// Batch Operations
-//=============================================================================
 bool RedisClient::mset(const std::vector<std::pair<std::string, std::string>>& pairs) {
     if (!connected_ || pairs.empty()) {
         last_error_ = pairs.empty() ? "Empty pairs" : "Not connected";
         return false;
     }
     
-    // Build MSET command
     std::vector<const char*> argv;
     std::vector<size_t> argvlen;
     
@@ -300,7 +287,6 @@ std::vector<std::optional<std::string>> RedisClient::mget(const std::vector<std:
         return results;
     }
     
-    // Build MGET command
     std::vector<const char*> argv;
     std::vector<size_t> argvlen;
     
@@ -342,7 +328,6 @@ std::vector<std::optional<std::string>> RedisClient::mget(const std::vector<std:
 int RedisClient::del(const std::vector<std::string>& keys) {
     if (!connected_ || keys.empty()) return 0;
     
-    // Build DEL command
     std::vector<const char*> argv;
     std::vector<size_t> argvlen;
     
@@ -369,9 +354,6 @@ int RedisClient::del(const std::vector<std::string>& keys) {
     return deleted;
 }
 
-//=============================================================================
-// Cache Helpers (2.5.3)
-//=============================================================================
 int64_t RedisClient::incr(const std::string& key) {
     if (!connected_) return -1;
     
@@ -402,9 +384,6 @@ int64_t RedisClient::incrby(const std::string& key, int64_t amount) {
     return result;
 }
 
-//=============================================================================
-// Key Patterns
-//=============================================================================
 std::vector<std::string> RedisClient::keys(const std::string& pattern) {
     std::vector<std::string> result;
     
@@ -435,9 +414,6 @@ int RedisClient::del_pattern(const std::string& pattern) {
     return del(matching_keys);
 }
 
-//=============================================================================
-// Utility
-//=============================================================================
 bool RedisClient::flushdb() {
     if (!connected_) return false;
     
@@ -466,9 +442,6 @@ int64_t RedisClient::dbsize() {
     return size;
 }
 
-//=============================================================================
-// Internal helpers
-//=============================================================================
 void* RedisClient::execute(const char* format, ...) {
     if (!connected_) return nullptr;
     

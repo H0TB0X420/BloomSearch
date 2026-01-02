@@ -6,9 +6,6 @@
 
 namespace search {
 
-//=============================================================================
-// Main parsing method
-//=============================================================================
 ParsedDocument HTMLParser::parse(const std::string& html, const std::string& base_url) {
     ParsedDocument doc;
     
@@ -17,14 +14,12 @@ ParsedDocument HTMLParser::parse(const std::string& html, const std::string& bas
         return doc;
     }
     
-    // Parse HTML with Gumbo
     GumboOutput* output = gumbo_parse(html.c_str());
     if (!output) {
         last_error_ = "Gumbo parsing failed";
         return doc;
     }
     
-    // Extract all data
     doc.title = extract_title(html);
     doc.text_content = extract_text(html);
     doc.links = extract_links(html, base_url);
@@ -34,7 +29,6 @@ ParsedDocument HTMLParser::parse(const std::string& html, const std::string& bas
     doc.keywords = meta["keywords"];
     doc.author = meta["author"];
     
-    // Try various date meta tags
     if (meta.count("article:published_time")) {
         doc.published_date = meta["article:published_time"];
     } else if (meta.count("date")) {
@@ -49,10 +43,8 @@ ParsedDocument HTMLParser::parse(const std::string& html, const std::string& bas
         doc.modified_date = meta["last-modified"];
     }
     
-    // Calculate stats
     doc.link_count = doc.links.size();
     
-    // Simple word count
     std::istringstream iss(doc.text_content);
     std::string word;
     while (iss >> word) {
@@ -64,31 +56,24 @@ ParsedDocument HTMLParser::parse(const std::string& html, const std::string& bas
     return doc;
 }
 
-//=============================================================================
-// Extract title from HTML
-//=============================================================================
 std::string HTMLParser::extract_title(const std::string& html) {
     GumboOutput* output = gumbo_parse(html.c_str());
     if (!output) return "";
     
     std::string title;
     
-    // Find <title> in <head>
     GumboNode* root = output->root;
     if (root->type == GUMBO_NODE_ELEMENT) {
-        // Find html > head > title
         const GumboVector* children = &root->v.element.children;
         for (unsigned int i = 0; i < children->length; ++i) {
             GumboNode* child = static_cast<GumboNode*>(children->data[i]);
             if (child->type == GUMBO_NODE_ELEMENT && 
                 child->v.element.tag == GUMBO_TAG_HEAD) {
-                // Found head, look for title
                 const GumboVector* head_children = &child->v.element.children;
                 for (unsigned int j = 0; j < head_children->length; ++j) {
                     GumboNode* head_child = static_cast<GumboNode*>(head_children->data[j]);
                     if (head_child->type == GUMBO_NODE_ELEMENT &&
                         head_child->v.element.tag == GUMBO_TAG_TITLE) {
-                        // Found title, extract text
                         const GumboVector* title_children = &head_child->v.element.children;
                         for (unsigned int k = 0; k < title_children->length; ++k) {
                             GumboNode* text_node = static_cast<GumboNode*>(title_children->data[k]);
@@ -109,9 +94,6 @@ std::string HTMLParser::extract_title(const std::string& html) {
     return trim_whitespace(title);
 }
 
-//=============================================================================
-// Extract visible text from HTML
-//=============================================================================
 std::string HTMLParser::extract_text(const std::string& html) {
     GumboOutput* output = gumbo_parse(html.c_str());
     if (!output) return "";
@@ -122,10 +104,9 @@ std::string HTMLParser::extract_text(const std::string& html) {
     
     gumbo_destroy_output(&kGumboDefaultOptions, output);
     
-    // Clean up whitespace
     std::string result;
     result.reserve(text.size());
-    bool last_was_space = true;  // Start true to trim leading whitespace
+    bool last_was_space = true;
     
     for (char c : text) {
         if (std::isspace(static_cast<unsigned char>(c))) {
@@ -139,7 +120,6 @@ std::string HTMLParser::extract_text(const std::string& html) {
         }
     }
     
-    // Trim trailing
     while (!result.empty() && result.back() == ' ') {
         result.pop_back();
     }
@@ -160,25 +140,21 @@ void HTMLParser::extract_text_recursive(const GumboNode* node,
         return;
     }
     
-    // Skip invisible tags
     if (is_invisible_tag(node->v.element.tag)) {
         return;
     }
     
-    // Track if we're in main content
     if (node->v.element.tag == GUMBO_TAG_MAIN ||
         node->v.element.tag == GUMBO_TAG_ARTICLE) {
         in_main_content = true;
     }
     
-    // Recurse into children
     const GumboVector* children = &node->v.element.children;
     for (unsigned int i = 0; i < children->length; ++i) {
         extract_text_recursive(static_cast<GumboNode*>(children->data[i]), 
                               output, in_main_content);
     }
     
-    // Add newline after block elements
     GumboTag tag = node->v.element.tag;
     if (tag == GUMBO_TAG_P || tag == GUMBO_TAG_DIV || 
         tag == GUMBO_TAG_BR || tag == GUMBO_TAG_LI ||
@@ -189,9 +165,6 @@ void HTMLParser::extract_text_recursive(const GumboNode* node,
     }
 }
 
-//=============================================================================
-// Check if tag should be skipped for text extraction
-//=============================================================================
 bool HTMLParser::is_invisible_tag(int tag) const {
     GumboTag t = static_cast<GumboTag>(tag);
     return t == GUMBO_TAG_SCRIPT ||
@@ -211,9 +184,6 @@ bool HTMLParser::is_boilerplate_tag(int tag) const {
            t == GUMBO_TAG_ASIDE;
 }
 
-//=============================================================================
-// Extract links from HTML
-//=============================================================================
 std::vector<ExtractedLink> HTMLParser::extract_links(const std::string& html, 
                                                       const std::string& base_url) {
     std::vector<ExtractedLink> links;
@@ -234,7 +204,6 @@ void HTMLParser::extract_links_recursive(const GumboNode* node,
         return;
     }
     
-    // Check for <a> tag
     if (node->v.element.tag == GUMBO_TAG_A) {
         std::string href = get_attribute(node, "href");
         
@@ -245,7 +214,6 @@ void HTMLParser::extract_links_recursive(const GumboNode* node,
             ExtractedLink link;
             link.url = normalize_url(href, base_url);
             
-            // Extract anchor text
             std::string anchor;
             bool dummy = false;
             extract_text_recursive(node, anchor, dummy);
@@ -257,7 +225,6 @@ void HTMLParser::extract_links_recursive(const GumboNode* node,
         }
     }
     
-    // Recurse
     const GumboVector* children = &node->v.element.children;
     for (unsigned int i = 0; i < children->length; ++i) {
         extract_links_recursive(static_cast<GumboNode*>(children->data[i]), 
@@ -265,16 +232,12 @@ void HTMLParser::extract_links_recursive(const GumboNode* node,
     }
 }
 
-//=============================================================================
-// Extract meta tags from HTML
-//=============================================================================
 std::unordered_map<std::string, std::string> HTMLParser::extract_meta_tags(const std::string& html) {
     std::unordered_map<std::string, std::string> meta;
     
     GumboOutput* output = gumbo_parse(html.c_str());
     if (!output) return meta;
     
-    // Find <head>
     GumboNode* root = output->root;
     if (root->type != GUMBO_NODE_ELEMENT) {
         gumbo_destroy_output(&kGumboDefaultOptions, output);
@@ -287,7 +250,6 @@ std::unordered_map<std::string, std::string> HTMLParser::extract_meta_tags(const
         if (child->type == GUMBO_NODE_ELEMENT && 
             child->v.element.tag == GUMBO_TAG_HEAD) {
             
-            // Iterate through head children
             const GumboVector* head_children = &child->v.element.children;
             for (unsigned int j = 0; j < head_children->length; ++j) {
                 GumboNode* meta_node = static_cast<GumboNode*>(head_children->data[j]);
@@ -295,20 +257,17 @@ std::unordered_map<std::string, std::string> HTMLParser::extract_meta_tags(const
                 if (meta_node->type == GUMBO_NODE_ELEMENT &&
                     meta_node->v.element.tag == GUMBO_TAG_META) {
                     
-                    // Check for name/content pair
                     std::string name = get_attribute(meta_node, "name");
                     std::string property = get_attribute(meta_node, "property");
                     std::string content = get_attribute(meta_node, "content");
                     
                     if (!name.empty() && !content.empty()) {
-                        // Lowercase the name
                         std::transform(name.begin(), name.end(), name.begin(),
                                       [](unsigned char c) { return std::tolower(c); });
                         meta[name] = content;
                     }
                     
                     if (!property.empty() && !content.empty()) {
-                        // Lowercase the property (for og: and article: tags)
                         std::transform(property.begin(), property.end(), property.begin(),
                                       [](unsigned char c) { return std::tolower(c); });
                         meta[property] = content;
@@ -323,9 +282,6 @@ std::unordered_map<std::string, std::string> HTMLParser::extract_meta_tags(const
     return meta;
 }
 
-//=============================================================================
-// Helper: Get attribute value from node
-//=============================================================================
 std::string HTMLParser::get_attribute(const GumboNode* node, const char* name) {
     if (node->type != GUMBO_NODE_ELEMENT) {
         return "";
@@ -338,11 +294,7 @@ std::string HTMLParser::get_attribute(const GumboNode* node, const char* name) {
     return "";
 }
 
-//=============================================================================
-// Helper: Normalize relative URL to absolute
-//=============================================================================
 std::string HTMLParser::normalize_url(const std::string& url, const std::string& base_url) {
-    // Already absolute
     if (url.find("http://") == 0 || url.find("https://") == 0) {
         return url;
     }
@@ -351,7 +303,6 @@ std::string HTMLParser::normalize_url(const std::string& url, const std::string&
         return url;
     }
     
-    // Parse base URL
     auto scheme_end = base_url.find("://");
     if (scheme_end == std::string::npos) return "";
     
@@ -366,17 +317,14 @@ std::string HTMLParser::normalize_url(const std::string& url, const std::string&
         base_host = base_url.substr(host_start, path_start - host_start);
     }
     
-    // Protocol-relative URL
     if (url.find("//") == 0) {
         return base_scheme + ":" + url;
     }
     
-    // Absolute path
     if (!url.empty() && url[0] == '/') {
         return base_scheme + "://" + base_host + url;
     }
     
-    // Relative path
     std::string base_path = (path_start != std::string::npos) 
                             ? base_url.substr(path_start) 
                             : "/";
@@ -388,9 +336,6 @@ std::string HTMLParser::normalize_url(const std::string& url, const std::string&
     return base_scheme + "://" + base_host + base_dir + url;
 }
 
-//=============================================================================
-// Helper: Trim whitespace
-//=============================================================================
 std::string HTMLParser::trim_whitespace(const std::string& str) {
     size_t start = str.find_first_not_of(" \t\n\r\f\v");
     if (start == std::string::npos) return "";

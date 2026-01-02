@@ -1,8 +1,8 @@
 #include "indexer/index_builder.h"
 #include "indexer/html_parser.h"
 #include "indexer/tokenizer.h"
-#include "storage/rocksdb_client.h"
-
+#include "storage/rocksdb/rocksdb_client.h"
+#include "common/search_types.h"
 #include <sstream>
 #include <chrono>
 #include <algorithm>
@@ -32,19 +32,15 @@ Posting Posting::deserialize(const std::string& data) {
     std::istringstream iss(data);
     std::string token;
     
-    // doc_id
     std::getline(iss, token, '|');
     p.doc_id = std::stoull(token);
     
-    // field
     std::getline(iss, token, '|');
     p.field = static_cast<Field>(std::stoi(token));
     
-    // frequency
     std::getline(iss, token, '|');
     p.frequency = static_cast<uint16_t>(std::stoi(token));
     
-    // positions
     std::getline(iss, token, '|');
     if (!token.empty()) {
         std::istringstream pos_stream(token);
@@ -95,10 +91,9 @@ PostingList PostingList::deserialize(const std::string& data) {
 }
 
 void PostingList::add_posting(const Posting& posting) {
-    // Check if we already have a posting for this doc_id + field
+    
     for (auto& existing : postings) {
         if (existing.doc_id == posting.doc_id && existing.field == posting.field) {
-            // Merge positions
             existing.frequency += posting.frequency;
             existing.positions.insert(existing.positions.end(),
                                      posting.positions.begin(),
@@ -107,7 +102,6 @@ void PostingList::add_posting(const Posting& posting) {
         }
     }
     
-    // New posting
     postings.push_back(posting);
 }
 
@@ -118,7 +112,6 @@ void PostingList::remove_document(uint64_t doc_id) {
         postings.end()
     );
     
-    // Recalculate doc_frequency
     std::unordered_set<uint64_t> unique_docs;
     for (const auto& p : postings) {
         unique_docs.insert(p.doc_id);
@@ -162,9 +155,6 @@ IndexedDocument IndexedDocument::deserialize(const std::string& data) {
     return doc;
 }
 
-//=============================================================================
-// IndexBuilder Constructor/Destructor
-//=============================================================================
 IndexBuilder::IndexBuilder()
     : parser_(std::make_unique<HTMLParser>())
     , tokenizer_(std::make_unique<Tokenizer>()) {
@@ -179,9 +169,6 @@ IndexBuilder::~IndexBuilder() {
     }
 }
 
-//=============================================================================
-// Setup
-//=============================================================================
 bool IndexBuilder::initialize(const std::string& db_path) {
     db_ = new RocksDBClient();
     owns_db_ = true;
@@ -211,9 +198,6 @@ bool IndexBuilder::initialize(RocksDBClient* db) {
     return true;
 }
 
-//=============================================================================
-// Document Processing (2.4.2)
-//=============================================================================
 bool IndexBuilder::index_document(uint64_t doc_id,
                                   const std::string& url,
                                   const std::string& html_content) {
@@ -222,11 +206,8 @@ bool IndexBuilder::index_document(uint64_t doc_id,
         return false;
     }
     
-    // Parse HTML
     auto parsed = parser_->parse(html_content, url);
     
-    // Extract H1 and H2 tags (basic extraction from text_content for now)
-    // In a more complete implementation, HTMLParser would extract these separately
     std::vector<std::string> h1_tags;
     std::vector<std::string> h2_tags;
     
@@ -246,15 +227,12 @@ bool IndexBuilder::index_parsed(uint64_t doc_id,
         return false;
     }
     
-    // If document exists, remove old postings first (Replace strategy)
     if (is_indexed(doc_id)) {
         remove_document(doc_id);
     }
     
-    // Track all terms for this document (for future removal)
     std::vector<std::string> doc_terms;
     
-    // Tokenize each field
     tokenize_field(title, Field::TITLE, doc_id, doc_terms);
     tokenize_field(body, Field::BODY, doc_id, doc_terms);
     tokenize_field(meta_description, Field::META_DESC, doc_id, doc_terms);
@@ -267,10 +245,8 @@ bool IndexBuilder::index_parsed(uint64_t doc_id,
         tokenize_field(h2, Field::H2, doc_id, doc_terms);
     }
     
-    // Store document term list
     pending_doc_terms_[doc_id] = doc_terms;
     
-    // Create document metadata
     IndexedDocument doc_meta;
     doc_meta.doc_id = doc_id;
     doc_meta.url = url;
@@ -285,7 +261,6 @@ bool IndexBuilder::index_parsed(uint64_t doc_id,
     pending_docs_metadata_.push_back(doc_meta);
     pending_docs_++;
     
-    // Flush if batch is full
     if (pending_docs_ >= batch_size_) {
         return flush();
     }
@@ -299,7 +274,6 @@ void IndexBuilder::tokenize_field(const std::string& text, Field field,
     
     auto tokens = tokenizer_->tokenize(text);
     
-    // Group by term to count frequency and positions
     std::unordered_map<std::string, Posting> term_postings;
     
     for (const auto& token : tokens) {
@@ -310,7 +284,6 @@ void IndexBuilder::tokenize_field(const std::string& text, Field field,
         posting.positions.push_back(static_cast<uint16_t>(token.position));
     }
     
-    // Add to pending postings
     for (auto& [term, posting] : term_postings) {
         add_to_pending(term, posting);
         terms_out.push_back(term);
@@ -328,7 +301,6 @@ std::string IndexBuilder::generate_snippet(const std::string& text, size_t max_l
         return text;
     }
     
-    // Find a good break point (end of sentence or word)
     size_t end = max_length;
     while (end > max_length - 50 && end > 0) {
         char c = text[end];
@@ -345,9 +317,6 @@ std::string IndexBuilder::generate_snippet(const std::string& text, size_t max_l
     return text.substr(0, end) + "...";
 }
 
-//=============================================================================
-// Batch Operations (2.4.3)
-//=============================================================================
 bool IndexBuilder::flush() {
     if (!db_ || pending_docs_ == 0) {
         return true;
@@ -355,18 +324,14 @@ bool IndexBuilder::flush() {
     
     db_->begin_batch();
     
-    // Write posting lists
     for (auto& [term, pending_pl] : pending_postings_) {
-        std::string key = term_key(term);
-        
-        // Merge with existing posting list
+        std::string key = term_key(term);        
         auto existing = db_->get(key);
         if (existing) {
             PostingList existing_pl = PostingList::deserialize(*existing);
             for (const auto& posting : pending_pl.postings) {
                 existing_pl.add_posting(posting);
             }
-            // Recalculate doc frequency
             std::unordered_set<uint64_t> unique_docs;
             for (const auto& p : existing_pl.postings) {
                 unique_docs.insert(p.doc_id);
@@ -374,10 +339,8 @@ bool IndexBuilder::flush() {
             existing_pl.doc_frequency = static_cast<uint32_t>(unique_docs.size());
             db_->batch_put(key, existing_pl.serialize());
             
-            // Update document frequency
             db_->batch_put(df_key(term), std::to_string(existing_pl.doc_frequency));
         } else {
-            // New term
             std::unordered_set<uint64_t> unique_docs;
             for (const auto& p : pending_pl.postings) {
                 unique_docs.insert(p.doc_id);
@@ -389,13 +352,11 @@ bool IndexBuilder::flush() {
         }
     }
     
-    // Write document metadata
     for (const auto& doc : pending_docs_metadata_) {
         db_->batch_put(doc_key(doc.doc_id), doc.serialize());
         doc_count_++;
     }
     
-    // Write document term lists
     for (const auto& [doc_id, terms] : pending_doc_terms_) {
         std::ostringstream oss;
         for (size_t i = 0; i < terms.size(); ++i) {
@@ -405,14 +366,10 @@ bool IndexBuilder::flush() {
         db_->batch_put(doc_terms_key(doc_id), oss.str());
     }
     
-    // Commit batch
     bool success = db_->commit_batch();
     
     if (success) {
-        // Save updated statistics
-        save_statistics();
-        
-        // Clear pending data
+        save_statistics();        
         pending_postings_.clear();
         pending_docs_metadata_.clear();
         pending_doc_terms_.clear();
@@ -424,9 +381,6 @@ bool IndexBuilder::flush() {
     return success;
 }
 
-//=============================================================================
-// Statistics (2.4.5)
-//=============================================================================
 uint32_t IndexBuilder::get_document_frequency(const std::string& term) {
     if (!db_) return 0;
     
@@ -458,23 +412,17 @@ void IndexBuilder::save_statistics() {
     db_->put("meta:term_count", std::to_string(term_count_));
 }
 
-//=============================================================================
-// Document Management (2.4.6)
-//=============================================================================
 bool IndexBuilder::remove_document(uint64_t doc_id) {
     if (!db_) {
         last_error_ = "Not initialized";
         return false;
     }
     
-    // Get list of terms for this document
     auto terms_data = db_->get(doc_terms_key(doc_id));
     if (!terms_data) {
-        // Document not indexed
         return true;
     }
     
-    // Parse term list
     std::vector<std::string> terms;
     std::istringstream iss(*terms_data);
     std::string term;
@@ -486,7 +434,6 @@ bool IndexBuilder::remove_document(uint64_t doc_id) {
     
     db_->begin_batch();
     
-    // Remove from each posting list
     for (const auto& t : terms) {
         auto pl_data = db_->get(term_key(t));
         if (pl_data) {
@@ -494,7 +441,6 @@ bool IndexBuilder::remove_document(uint64_t doc_id) {
             pl.remove_document(doc_id);
             
             if (pl.postings.empty()) {
-                // Term no longer exists
                 db_->batch_delete(term_key(t));
                 db_->batch_delete(df_key(t));
                 if (term_count_ > 0) term_count_--;
@@ -505,7 +451,6 @@ bool IndexBuilder::remove_document(uint64_t doc_id) {
         }
     }
     
-    // Remove document metadata and term list
     db_->batch_delete(doc_key(doc_id));
     db_->batch_delete(doc_terms_key(doc_id));
     

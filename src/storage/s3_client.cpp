@@ -13,18 +13,11 @@
 
 namespace search {
 
-//=============================================================================
-// CURL callback for writing response data
-//=============================================================================
 static size_t write_callback(void* contents, size_t size, size_t nmemb, std::string* output) {
     size_t total_size = size * nmemb;
     output->append(static_cast<char*>(contents), total_size);
     return total_size;
 }
-
-//=============================================================================
-// Connection (1.4.1)
-//=============================================================================
 
 bool S3Client::connect() {
     const char* endpoint = std::getenv("MINIO_ENDPOINT");
@@ -72,7 +65,6 @@ bool S3Client::ensure_bucket_exists() {
         return false;
     }
     
-    // Just check if bucket is accessible with a HEAD request
     CURL* curl = curl_easy_init();
     if (!curl) return false;
     
@@ -96,10 +88,6 @@ bool S3Client::ensure_bucket_exists() {
     last_error_ = "Cannot reach MinIO at " + url;
     return false;
 }
-
-//=============================================================================
-// Storage Operations (1.4.3)
-//=============================================================================
 
 bool S3Client::put(const std::string& key, const std::string& content, bool compress_flag) {
     if (!connected_) {
@@ -235,20 +223,14 @@ bool S3Client::remove(const std::string& key) {
     return (res == CURLE_OK && http_code >= 200 && http_code < 300);
 }
 
-//=============================================================================
-// Compression (1.4.2) - Zstandard implementation
-//=============================================================================
-
 std::string S3Client::compress(const std::string& data) {
     if (data.empty()) {
         return data;
     }
     
-    // Get maximum compressed size
     size_t max_compressed_size = ZSTD_compressBound(data.size());
     std::string compressed(max_compressed_size, '\0');
     
-    // Compress with level 3 (good balance of speed/ratio)
     size_t compressed_size = ZSTD_compress(
         compressed.data(), compressed.size(),
         data.data(), data.size(),
@@ -256,7 +238,6 @@ std::string S3Client::compress(const std::string& data) {
     );
     
     if (ZSTD_isError(compressed_size)) {
-        // Return original data if compression fails
         return data;
     }
     
@@ -269,24 +250,20 @@ std::string S3Client::decompress(const std::string& compressed) {
         return compressed;
     }
     
-    // Check for Zstd magic number
     if (compressed.size() < 4 ||
         static_cast<uint8_t>(compressed[0]) != 0x28 ||
         static_cast<uint8_t>(compressed[1]) != 0xB5 ||
         static_cast<uint8_t>(compressed[2]) != 0x2F ||
         static_cast<uint8_t>(compressed[3]) != 0xFD) {
-        // Not compressed, return as-is
         return compressed;
     }
     
-    // Get decompressed size (stored in zstd frame header)
     unsigned long long decompressed_size = ZSTD_getFrameContentSize(
         compressed.data(), compressed.size()
     );
     
     if (decompressed_size == ZSTD_CONTENTSIZE_ERROR ||
         decompressed_size == ZSTD_CONTENTSIZE_UNKNOWN) {
-        // Can't determine size, use a reasonable default
         decompressed_size = compressed.size() * 10;  // Assume 10x expansion max
     }
     
@@ -298,7 +275,6 @@ std::string S3Client::decompress(const std::string& compressed) {
     );
     
     if (ZSTD_isError(result)) {
-        // Return original if decompression fails
         return compressed;
     }
     
@@ -306,12 +282,7 @@ std::string S3Client::decompress(const std::string& compressed) {
     return decompressed;
 }
 
-//=============================================================================
-// Utility
-//=============================================================================
-
 std::string S3Client::url_to_key(const std::string& url) {
-    // Simple hash-based key
     std::hash<std::string> hasher;
     size_t hash = hasher(url);
     
@@ -319,10 +290,6 @@ std::string S3Client::url_to_key(const std::string& url) {
     oss << std::hex << std::setfill('0') << std::setw(16) << hash << ".html";
     return oss.str();
 }
-
-//=============================================================================
-// AWS Signature V4 Helpers (kept for future authenticated access)
-//=============================================================================
 
 std::string S3Client::sha256_hash(const std::string& data) {
     unsigned char hash[SHA256_DIGEST_LENGTH];
@@ -354,7 +321,6 @@ std::string S3Client::sign_request(const std::string& /*method*/,
                                    const std::string& /*path*/,
                                    const std::string& /*payload_hash*/,
                                    const std::string& /*content_type*/) const {
-    // Not used for anonymous access
     return "";
 }
 

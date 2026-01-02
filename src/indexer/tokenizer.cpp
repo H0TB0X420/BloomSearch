@@ -4,9 +4,6 @@
 
 namespace search {
 
-//=============================================================================
-// Constructors
-//=============================================================================
 Tokenizer::Tokenizer() 
     : processor_(std::make_shared<TextProcessor>()) {
 }
@@ -15,9 +12,6 @@ Tokenizer::Tokenizer(std::shared_ptr<TextProcessor> processor)
     : processor_(processor ? processor : std::make_shared<TextProcessor>()) {
 }
 
-//=============================================================================
-// Configuration
-//=============================================================================
 void Tokenizer::set_min_token_length(size_t len) {
     min_token_length_ = len;
     processor_->set_min_token_length(len);
@@ -46,9 +40,6 @@ void Tokenizer::add_stop_words(const std::vector<std::string>& words) {
     processor_->add_stop_words(words);
 }
 
-//=============================================================================
-// Convenience methods (delegate to TextProcessor)
-//=============================================================================
 std::string Tokenizer::normalize(const std::string& token) const {
     return processor_->normalize(token);
 }
@@ -61,9 +52,6 @@ bool Tokenizer::is_stop_word(const std::string& word) const {
     return processor_->is_stop_word(word);
 }
 
-//=============================================================================
-// Main tokenization with position tracking
-//=============================================================================
 std::vector<Token> Tokenizer::tokenize(const std::string& text) const {
     std::vector<Token> tokens;
     
@@ -71,14 +59,12 @@ std::vector<Token> Tokenizer::tokenize(const std::string& text) const {
     size_t token_position = 0;
     
     while (i < text.size()) {
-        // Skip non-alphanumeric characters
         while (i < text.size() && !std::isalnum(static_cast<unsigned char>(text[i]))) {
             ++i;
         }
         
         if (i >= text.size()) break;
         
-        // Find end of token
         size_t start = i;
         while (i < text.size() && std::isalnum(static_cast<unsigned char>(text[i]))) {
             ++i;
@@ -87,18 +73,15 @@ std::vector<Token> Tokenizer::tokenize(const std::string& text) const {
         std::string original = text.substr(start, i - start);
         std::string normalized = processor_->normalize(original);
         
-        // Apply length filters
         if (normalized.length() < min_token_length_ || 
             normalized.length() > max_token_length_) {
             continue;
         }
         
-        // Apply stop word filter
         if (remove_stop_words_ && processor_->is_stop_word(normalized)) {
             continue;
         }
         
-        // Apply stemming
         std::string final_token = apply_stemming_ ? processor_->stem(normalized) : normalized;
         
         if (!final_token.empty()) {
@@ -114,9 +97,6 @@ std::vector<Token> Tokenizer::tokenize(const std::string& text) const {
     return tokens;
 }
 
-//=============================================================================
-// Simple tokenization (strings only)
-//=============================================================================
 std::vector<std::string> Tokenizer::tokenize_simple(const std::string& text) const {
     auto tokens = tokenize(text);
     std::vector<std::string> result;
@@ -129,23 +109,17 @@ std::vector<std::string> Tokenizer::tokenize_simple(const std::string& text) con
     return result;
 }
 
-//=============================================================================
-// Query tokenization
-// Similar to simple but may preserve more for phrase matching
-//=============================================================================
 std::vector<std::string> Tokenizer::tokenize_query(const std::string& query) const {
     std::vector<std::string> tokens;
     
     size_t i = 0;
     while (i < query.size()) {
-        // Skip whitespace
         while (i < query.size() && std::isspace(static_cast<unsigned char>(query[i]))) {
             ++i;
         }
         
         if (i >= query.size()) break;
         
-        // Find end of token
         size_t start = i;
         while (i < query.size() && !std::isspace(static_cast<unsigned char>(query[i]))) {
             ++i;
@@ -155,7 +129,6 @@ std::vector<std::string> Tokenizer::tokenize_query(const std::string& query) con
         std::string normalized = processor_->normalize(token);
         
         if (!normalized.empty()) {
-            // Apply stemming but keep stop words for phrase matching
             std::string final_token = apply_stemming_ ? processor_->stem(normalized) : normalized;
             if (!final_token.empty()) {
                 tokens.push_back(final_token);
@@ -166,9 +139,6 @@ std::vector<std::string> Tokenizer::tokenize_query(const std::string& query) con
     return tokens;
 }
 
-//=============================================================================
-// N-gram generation
-//=============================================================================
 std::vector<std::string> Tokenizer::generate_bigrams(const std::vector<std::string>& tokens) const {
     std::vector<std::string> bigrams;
     

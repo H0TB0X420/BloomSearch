@@ -5,16 +5,9 @@
 
 namespace search {
 
-//=============================================================================
-// Constructor
-//=============================================================================
 Ranker::Ranker() : index_(nullptr) {}
 
 Ranker::Ranker(std::shared_ptr<IndexReader> index) : index_(index) {}
-
-//=============================================================================
-// BM25 Scoring
-//=============================================================================
 
 float Ranker::idf(uint32_t doc_freq, uint64_t total_docs) const {
     if (doc_freq == 0 || total_docs == 0) {
@@ -45,7 +38,6 @@ float Ranker::bm25_term_score(
     float dl = static_cast<float>(doc_length);
     float avgdl = avg_doc_length > 0 ? avg_doc_length : 1.0f;
     
-    // IDF component
     float idf_score = idf(doc_freq, total_docs);
     
     // TF component with length normalization
@@ -64,10 +56,6 @@ float Ranker::apply_ai_penalty(float relevance_score, float ai_score) const {
     return relevance_score * (1.0f - penalty);
 }
 
-//=============================================================================
-// Candidate Collection
-//=============================================================================
-
 std::unordered_map<uint64_t, std::unordered_map<std::string, Posting>>
 Ranker::collect_candidates(const std::vector<std::string>& terms) {
     std::unordered_map<uint64_t, std::unordered_map<std::string, Posting>> candidates;
@@ -83,10 +71,6 @@ Ranker::collect_candidates(const std::vector<std::string>& terms) {
     
     return candidates;
 }
-
-//=============================================================================
-// Document Scoring
-//=============================================================================
 
 float Ranker::score_document(
     uint64_t doc_id,
@@ -112,7 +96,7 @@ float Ranker::score_document(
         uint32_t doc_freq = index_->get_doc_frequency(term);
         
         float term_score = bm25_term_score(
-            posting.term_frequency,
+            posting.frequency,
             doc_length,
             doc_freq,
             total_docs,
@@ -126,15 +110,10 @@ float Ranker::score_document(
     return total_score;
 }
 
-//=============================================================================
-// Phrase Matching
-//=============================================================================
-
 bool Ranker::matches_phrase(
     const std::vector<uint32_t>& positions1,
     const std::vector<uint32_t>& positions2
 ) const {
-    // Check if any position in positions2 is exactly 1 after any position in positions1
     for (uint32_t pos1 : positions1) {
         for (uint32_t pos2 : positions2) {
             if (pos2 == pos1 + 1) {
@@ -149,9 +128,7 @@ bool Ranker::check_phrases(
     const std::vector<std::string>& phrases,
     const std::unordered_map<std::string, Posting>& term_postings
 ) const {
-    // For each phrase, check if words appear consecutively
     for (const auto& phrase : phrases) {
-        // Tokenize the phrase (simple split by space)
         std::vector<std::string> phrase_terms;
         std::string current;
         for (char c : phrase) {
@@ -169,7 +146,6 @@ bool Ranker::check_phrases(
         }
         
         if (phrase_terms.size() < 2) {
-            // Single word phrase - just check if term exists
             if (phrase_terms.size() == 1) {
                 if (term_postings.find(phrase_terms[0]) == term_postings.end()) {
                     return false;
@@ -178,7 +154,6 @@ bool Ranker::check_phrases(
             continue;
         }
         
-        // Check consecutive positions for each pair
         bool phrase_found = true;
         for (size_t i = 0; i < phrase_terms.size() - 1; ++i) {
             auto it1 = term_postings.find(phrase_terms[i]);
@@ -203,19 +178,13 @@ bool Ranker::check_phrases(
     return true;
 }
 
-//=============================================================================
-// Filter Application
-//=============================================================================
-
 bool Ranker::passes_filters(const DocumentInfo& doc, const ParsedQuery& query) const {
-    // Era filter
     if (query.era_filter.has_value()) {
         if (doc.era != *query.era_filter) {
             return false;
         }
     }
     
-    // AI score filters
     if (query.max_ai_score.has_value()) {
         if (doc.ai_score > *query.max_ai_score) {
             return false;
@@ -228,14 +197,11 @@ bool Ranker::passes_filters(const DocumentInfo& doc, const ParsedQuery& query) c
         }
     }
     
-    // Site filter
     if (query.site_filter.has_value()) {
-        // Check if document domain matches or is subdomain of filter
         const std::string& filter_domain = *query.site_filter;
         const std::string& doc_domain = doc.domain;
         
         if (doc_domain != filter_domain) {
-            // Check if doc_domain ends with .filter_domain
             if (doc_domain.length() <= filter_domain.length()) {
                 return false;
             }
@@ -261,13 +227,9 @@ bool Ranker::has_excluded_terms(
     return false;
 }
 
-//=============================================================================
-// Main Ranking Method - Returns SearchResponse
-//=============================================================================
-
 SearchResponse Ranker::rank(const ParsedQuery& query, size_t max_results) {
     SearchResponse response;
-    response.query = query;  // Include the query in the response
+    response.query = query;
     
     auto start_time = std::chrono::high_resolution_clock::now();
     
@@ -277,10 +239,8 @@ SearchResponse Ranker::rank(const ParsedQuery& query, size_t max_results) {
     
     response.docs_searched = index_->get_total_docs();
     
-    // Collect all terms to search (including phrase terms)
     std::vector<std::string> all_terms = query.terms;
     
-    // Add terms from phrases (for candidate collection)
     for (const auto& phrase : query.phrases) {
         std::string current;
         for (char c : phrase) {
@@ -298,48 +258,37 @@ SearchResponse Ranker::rank(const ParsedQuery& query, size_t max_results) {
         }
     }
     
-    // Also collect postings for excluded terms (to filter them out)
     std::vector<std::string> search_terms = all_terms;
     for (const auto& excluded : query.excluded_terms) {
         search_terms.push_back(excluded);
-    }
-    
-    // Collect candidate documents
+    }    
     auto candidates = collect_candidates(search_terms);
     
-    // Score and filter each candidate
     std::vector<SearchResult> results;
     uint64_t total_matches = 0;
     
     for (auto& [doc_id, term_postings] : candidates) {
-        // Get document info
         auto doc_opt = index_->get_document(doc_id);
         if (!doc_opt.has_value()) {
             continue;
         }
         DocumentInfo doc = *doc_opt;
         
-        // Check exclusions first (fastest filter)
         if (has_excluded_terms(query.excluded_terms, term_postings)) {
             continue;
         }
         
-        // Check filters
         if (!passes_filters(doc, query)) {
             continue;
         }
         
-        // Check phrase matches
         if (!query.phrases.empty()) {
             if (!check_phrases(query.phrases, term_postings)) {
                 continue;
             }
         }
         
-        // This doc matches - count it
-        ++total_matches;
-        
-        // Score the document
+        ++total_matches;        
         SearchResult result;
         result.doc = doc;
         
@@ -351,27 +300,22 @@ SearchResponse Ranker::rank(const ParsedQuery& query, size_t max_results) {
             result.term_scores
         );
         
-        // Apply AI penalty
         result.ai_penalty = doc.ai_score * ai_penalty_weight_;
         result.score = apply_ai_penalty(result.relevance_score, doc.ai_score);
         
         results.push_back(result);
     }
     
-    // Sort by score (descending)
     std::sort(results.begin(), results.end());
     
-    // Limit results
     if (results.size() > max_results) {
         results.resize(max_results);
     }
     
-    // Calculate search time
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
     response.search_time_ms = static_cast<float>(duration.count()) / 1000.0f;
     
-    // Populate response
     response.results = std::move(results);
     response.total_matches = total_matches;
     

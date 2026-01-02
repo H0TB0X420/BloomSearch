@@ -4,9 +4,6 @@
 
 namespace search {
 
-//=============================================================================
-// Constructors
-//=============================================================================
 QueryParser::QueryParser() 
     : processor_(std::make_shared<TextProcessor>()) {
 }
@@ -15,17 +12,11 @@ QueryParser::QueryParser(std::shared_ptr<TextProcessor> processor)
     : processor_(processor ? processor : std::make_shared<TextProcessor>()) {
 }
 
-//=============================================================================
-// Configuration
-//=============================================================================
 void QueryParser::set_enable_stemming(bool enable) {
     enable_stemming_ = enable;
     processor_->set_stemming_enabled(enable);
 }
 
-//=============================================================================
-// Main parse method
-//=============================================================================
 ParsedQuery QueryParser::parse(const std::string& query) {
     ParsedQuery result;
     result.original_query = query;
@@ -34,7 +25,6 @@ ParsedQuery QueryParser::parse(const std::string& query) {
         return result;
     }
     
-    // Make a working copy
     std::string working = query;
     
     // Step 1: Extract quoted phrases first
@@ -45,15 +35,12 @@ ParsedQuery QueryParser::parse(const std::string& query) {
     std::string token;
     
     while (iss >> token) {
-        // Check if it's a filter (contains :)
         if (token.find(':') != std::string::npos) {
             if (parse_filter(token, result)) {
-                continue;  // Successfully parsed as filter
+                continue;
             }
-            // If not a valid filter, treat as regular term
         }
         
-        // Check if it's an exclusion (-term)
         if (token.size() > 1 && token[0] == '-') {
             std::string excluded = token.substr(1);
             excluded = processor_->process_word(excluded);
@@ -63,15 +50,10 @@ ParsedQuery QueryParser::parse(const std::string& query) {
             continue;
         }
         
-        // Regular term - process with TextProcessor
-        std::string normalized = processor_->normalize(token);
-        
-        // Skip stop words
+        std::string normalized = processor_->normalize(token);        
         if (processor_->is_stop_word(normalized)) {
             continue;
-        }
-        
-        // Apply stemming if enabled
+        }        
         std::string processed = enable_stemming_ ? processor_->stem(normalized) : normalized;
         
         if (!processed.empty()) {
@@ -82,9 +64,6 @@ ParsedQuery QueryParser::parse(const std::string& query) {
     return result;
 }
 
-//=============================================================================
-// Extract quoted phrases from query
-//=============================================================================
 std::vector<std::string> QueryParser::extract_phrases(std::string& query) {
     std::vector<std::string> phrases;
     
@@ -92,14 +71,11 @@ std::vector<std::string> QueryParser::extract_phrases(std::string& query) {
     while ((start = query.find('"', start)) != std::string::npos) {
         size_t end = query.find('"', start + 1);
         if (end == std::string::npos) {
-            // Unclosed quote - ignore
             break;
         }
         
-        // Extract phrase (without quotes)
         std::string phrase = query.substr(start + 1, end - start - 1);
         
-        // Trim whitespace
         size_t first = phrase.find_first_not_of(" \t");
         size_t last = phrase.find_last_not_of(" \t");
         if (first != std::string::npos) {
@@ -107,21 +83,16 @@ std::vector<std::string> QueryParser::extract_phrases(std::string& query) {
         }
         
         if (!phrase.empty()) {
-            // Lowercase the phrase using TextProcessor
             phrase = processor_->to_lower(phrase);
             phrases.push_back(phrase);
         }
         
-        // Remove the phrase from the query (replace with space)
         query.replace(start, end - start + 1, " ");
     }
     
     return phrases;
 }
 
-//=============================================================================
-// Parse filter expressions (key:value)
-//=============================================================================
 bool QueryParser::parse_filter(const std::string& token, ParsedQuery& query) {
     size_t colon_pos = token.find(':');
     if (colon_pos == std::string::npos || colon_pos == 0) {
@@ -131,7 +102,6 @@ bool QueryParser::parse_filter(const std::string& token, ParsedQuery& query) {
     std::string key = token.substr(0, colon_pos);
     std::string value = token.substr(colon_pos + 1);
     
-    // Lowercase the key using TextProcessor
     key = processor_->to_lower(key);
     
     if (key == "era") {
@@ -146,7 +116,7 @@ bool QueryParser::parse_filter(const std::string& token, ParsedQuery& query) {
 }
 
 bool QueryParser::parse_era_filter(const std::string& value, ParsedQuery& query) {
-    auto era = parse_era(value);  // Uses shared function from search_types.h
+    auto era = parse_era(value); 
     if (era) {
         query.era_filter = era;
         return true;
@@ -188,9 +158,7 @@ bool QueryParser::parse_ai_filter(const std::string& value, ParsedQuery& query) 
 }
 
 bool QueryParser::parse_site_filter(const std::string& value, ParsedQuery& query) {
-    if (value.empty()) return false;
-    
-    // Lowercase the domain using TextProcessor
+    if (value.empty()) return false;    
     query.site_filter = processor_->to_lower(value);
     return true;
 }

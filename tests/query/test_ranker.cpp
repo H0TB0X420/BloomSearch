@@ -142,25 +142,25 @@ std::shared_ptr<MockIndexReader> create_test_index() {
     
     // Add postings
     // Doc 1: "bitcoin price prediction"
-    index->add_posting("bitcoin", Posting{1, 3, {0, 15, 45}});
-    index->add_posting("price", Posting{1, 2, {1, 46}});
-    index->add_posting("predict", Posting{1, 1, {2}});  // stemmed
-    index->add_posting("histori", Posting{1, 1, {5}});  // stemmed
+    index->add_posting("bitcoin", Posting{1, Field::BODY,  3, {0, 15, 45}});
+    index->add_posting("price", Posting{1, Field::BODY,  2, {1, 46}});
+    index->add_posting("predict", Posting{1, Field::BODY,  1, {2}});  // stemmed
+    index->add_posting("histori", Posting{1, Field::BODY,  1, {5}});  // stemmed
     
     // Doc 2: "bitcoin trading"
-    index->add_posting("bitcoin", Posting{2, 5, {0, 10, 20, 30, 40}});
-    index->add_posting("trade", Posting{2, 3, {1, 11, 21}});  // stemmed
-    index->add_posting("guid", Posting{2, 1, {3}});  // stemmed
+    index->add_posting("bitcoin", Posting{2, Field::BODY, 5, {0, 10, 20, 30, 40}});
+    index->add_posting("trade", Posting{2, Field::BODY, 3, {1, 11, 21}});  // stemmed
+    index->add_posting("guid", Posting{2, Field::BODY, 1, {3}});  // stemmed
     
     // Doc 3: "ethereum price"
-    index->add_posting("ethereum", Posting{3, 4, {0, 12, 24, 36}});
-    index->add_posting("price", Posting{3, 3, {1, 13, 25}});
-    index->add_posting("analysi", Posting{3, 2, {2, 26}});  // stemmed
+    index->add_posting("ethereum", Posting{3, Field::BODY, 4, {0, 12, 24, 36}});
+    index->add_posting("price", Posting{3, Field::BODY, 3, {1, 13, 25}});
+    index->add_posting("analysi", Posting{3, Field::BODY, 2, {2, 26}});  // stemmed
     
     // Doc 4: "bitcoin scam"
-    index->add_posting("bitcoin", Posting{4, 2, {0, 8}});
-    index->add_posting("scam", Posting{4, 3, {1, 5, 9}});
-    index->add_posting("warn", Posting{4, 1, {2}});  // stemmed
+    index->add_posting("bitcoin", Posting{4, Field::BODY, 2, {0, 8}});
+    index->add_posting("scam", Posting{4, Field::BODY, 3, {1, 5, 9}});
+    index->add_posting("warn", Posting{4, Field::BODY, 1, {2}});  // stemmed
     
     index->set_total_docs(4);
     index->set_avg_doc_length(157.5f);

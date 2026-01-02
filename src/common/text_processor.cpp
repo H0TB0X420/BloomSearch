@@ -4,16 +4,10 @@
 
 namespace search {
 
-//=============================================================================
-// Constructor
-//=============================================================================
 TextProcessor::TextProcessor() {
     init_default_stop_words();
 }
 
-//=============================================================================
-// Initialize default English stop words
-//=============================================================================
 void TextProcessor::init_default_stop_words() {
     std::vector<std::string> defaults = {
         // Articles
@@ -51,9 +45,6 @@ void TextProcessor::init_default_stop_words() {
     }
 }
 
-//=============================================================================
-// Stop Word Management
-//=============================================================================
 void TextProcessor::add_stop_word(const std::string& word) {
     stop_words_.insert(normalize(word));
 }
@@ -76,9 +67,6 @@ bool TextProcessor::is_stop_word(const std::string& word) const {
     return stop_words_.count(word) > 0;
 }
 
-//=============================================================================
-// Normalization
-//=============================================================================
 std::string TextProcessor::normalize(const std::string& text) const {
     std::string result;
     result.reserve(text.size());
@@ -99,9 +87,6 @@ std::string TextProcessor::to_lower(const std::string& text) const {
     return result;
 }
 
-//=============================================================================
-// Basic Tokenization
-//=============================================================================
 std::vector<std::string> TextProcessor::tokenize(const std::string& text) const {
     std::vector<std::string> tokens;
     
@@ -168,9 +153,6 @@ std::string TextProcessor::process_word(const std::string& word) const {
     return stemming_enabled_ ? stem(normalized) : normalized;
 }
 
-//=============================================================================
-// Stemming - Public Interface
-//=============================================================================
 std::string TextProcessor::stem(const std::string& word) const {
     if (word.length() < 3) {
         return word;  // Don't stem very short words

@@ -62,7 +62,8 @@ target_link_libraries(common
 # Storage library (database clients)
 add_library(storage STATIC
     src/storage/postgres_client.cpp
-    src/storage/rocksdb_client.cpp
+    src/storage/rocksdb/rocksdb_client.cpp
+    src/storage/rocksdb/rocksdb_index_reader.cpp
     src/storage/s3_client.cpp
     src/storage/redis_client.cpp
 )
@@ -312,6 +313,13 @@ if(BUILD_TESTS)
     )
     add_executable(test_ranker tests/query/test_ranker.cpp)
     target_link_libraries(test_ranker
+        query_lib
+        common
+    )
+    add_executable(test_rocksdb_index_reader tests/storage/test_rocksdb_index_reader.cpp)
+    target_link_libraries(test_rocksdb_index_reader
+        storage
+        indexer_lib
         query_lib
         common
     )

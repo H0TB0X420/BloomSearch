@@ -8,10 +8,6 @@
 
 namespace search {
 
-//=============================================================================
-// Era classification for AI detection
-// Shared between QueryParser (for filtering) and Ranker (for scoring)
-//=============================================================================
 enum class Era {
     PRE_AI,      // Before Nov 2022 - definitely human-written
     TRANSITION,  // Nov 2022 - Dec 2023 - uncertain period
@@ -19,7 +15,6 @@ enum class Era {
     UNKNOWN      // No date information available
 };
 
-// Convert Era to string for display
 inline std::string era_to_string(Era era) {
     switch (era) {
         case Era::PRE_AI:     return "Pre-AI";
@@ -30,7 +25,6 @@ inline std::string era_to_string(Era era) {
     }
 }
 
-// Parse era from string (for query filters)
 inline std::optional<Era> parse_era(const std::string& str) {
     std::string lower;
     for (char c : str) {
@@ -48,10 +42,6 @@ inline std::optional<Era> parse_era(const std::string& str) {
     return std::nullopt;
 }
 
-//=============================================================================
-// Parsed query structure
-// Output of QueryParser, input to Ranker
-//=============================================================================
 struct ParsedQuery {
     // Search terms (tokenized, stemmed)
     std::vector<std::string> terms;
@@ -71,18 +61,13 @@ struct ParsedQuery {
     // Original query for display
     std::string original_query;
     
-    // Check if query is empty/invalid
     bool empty() const {
         return terms.empty() && phrases.empty();
     }
     
-    // Debug string representation
     std::string to_string() const;
 };
 
-//=============================================================================
-// Document metadata for ranking
-//=============================================================================
 struct DocumentInfo {
     uint64_t doc_id = 0;
     std::string url;
@@ -94,17 +79,13 @@ struct DocumentInfo {
     std::string domain;            // Extracted domain for site: filter
 };
 
-//=============================================================================
-// Search result with score breakdown
-//=============================================================================
 struct SearchResult {
     DocumentInfo doc;
     float score = 0.0f;            // Final combined score
     float relevance_score = 0.0f;  // TF-IDF/BM25 score
     float ai_penalty = 0.0f;       // Penalty applied for AI content
     
-    // For debugging/transparency
-    std::unordered_map<std::string, float> term_scores;  // Per-term contributions
+    std::unordered_map<std::string, float> term_scores;
     
     bool operator<(const SearchResult& other) const {
         return score > other.score;  // Higher score = better (for sorting)
@@ -112,39 +93,63 @@ struct SearchResult {
    
 };
 
-//=============================================================================
-// Complete search response
-// Returned by Ranker::rank(), contains query + results
-//=============================================================================
 struct SearchResponse {
-    // The parsed query that was executed
     ParsedQuery query;
     
-    // Ranked results
     std::vector<SearchResult> results;
     
-    // Statistics
-    uint64_t total_matches = 0;    // Total docs matching before limit
-    uint64_t docs_searched = 0;    // Total docs in index
-    float search_time_ms = 0.0f;   // Time to execute search
+    uint64_t total_matches = 0;
+    uint64_t docs_searched = 0;    
+    float search_time_ms = 0.0f;  
     
-    // Convenience methods
     bool empty() const { return results.empty(); }
     size_t size() const { return results.size(); }
 };
 
-//=============================================================================
-// Posting list entry (from index)
-//=============================================================================
-struct Posting {
-    uint64_t doc_id = 0;
-    uint32_t term_frequency = 0;   // How many times term appears in doc
-    std::vector<uint32_t> positions;  // Token positions (for phrase matching)
+enum class Field : uint8_t {
+    BODY = 0,
+    TITLE = 1,
+    H1 = 2,
+    H2 = 3,
+    URL = 4,
+    META_DESC = 5,
+    ANCHOR = 6
 };
 
-//=============================================================================
-// ParsedQuery::to_string implementation
-//=============================================================================
+constexpr float FIELD_BOOSTS[] = {
+    1.0f,   // BODY
+    10.0f,  // TITLE
+    5.0f,   // H1
+    3.0f,   // H2
+    5.0f,   // URL
+    2.0f,   // META_DESC
+    4.0f    // ANCHOR
+};
+
+
+struct Posting {
+    uint64_t doc_id;
+    Field field;
+    uint32_t frequency;                 
+    std::vector<uint32_t> positions;    
+    
+    std::string serialize() const;
+    static Posting deserialize(const std::string& data);
+};
+
+struct PostingList {
+    std::string term;
+    uint32_t doc_frequency;             
+    std::vector<Posting> postings;
+    
+    void add_posting(const Posting& posting);
+    
+    void remove_document(uint64_t doc_id);
+    
+    std::string serialize() const;
+    static PostingList deserialize(const std::string& data);
+};
+
 inline std::string ParsedQuery::to_string() const {
     std::string result = "ParsedQuery {\n";
     result += "  original: \"" + original_query + "\"\n";

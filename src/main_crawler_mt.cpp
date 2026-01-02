@@ -1,8 +1,3 @@
-//=============================================================================
-// Bloom Search - Multithreaded Crawler
-// Concurrent web crawler with polite rate limiting
-//=============================================================================
-
 #include "common/config.h"
 #include "common/logger.h"
 #include "crawler/http_fetcher.h"
@@ -24,9 +19,6 @@
 
 using namespace search;
 
-//=============================================================================
-// Global state for graceful shutdown
-//=============================================================================
 std::atomic<bool> g_shutdown_requested{false};
 
 void signal_handler(int signal) {
@@ -36,9 +28,6 @@ void signal_handler(int signal) {
     }
 }
 
-//=============================================================================
-// Statistics (thread-safe)
-//=============================================================================
 struct CrawlerStats {
     std::atomic<uint64_t> pages_crawled{0};
     std::atomic<uint64_t> pages_failed{0};
@@ -67,13 +56,9 @@ struct CrawlerStats {
     }
 };
 
-//=============================================================================
-// Robots.txt Cache (thread-safe)
-//=============================================================================
 class RobotsCache {
 public:
     bool is_allowed(const std::string& url, const std::string& domain, HTTPFetcher& fetcher) {
-        // Check cache first
         {
             std::lock_guard<std::mutex> lock(mutex_);
             auto it = cache_.find(domain);
@@ -82,7 +67,6 @@ public:
             }
         }
         
-        // Fetch robots.txt
         std::string robots_url = "https://" + domain + "/robots.txt";
         std::string robots_content;
         bool success = fetcher.fetch(robots_url, robots_content);
@@ -93,7 +77,6 @@ public:
         }
         // If fetch fails, assume allowed (be permissive)
         
-        // Cache the result
         {
             std::lock_guard<std::mutex> lock(mutex_);
             cache_[domain] = std::move(parser);
@@ -118,9 +101,6 @@ private:
     std::mutex mutex_;
 };
 
-//=============================================================================
-// Worker thread function
-//=============================================================================
 void crawler_worker(
     int worker_id,
     URLFrontierMT& frontier,
@@ -136,61 +116,48 @@ void crawler_worker(
     Logger::info("[Worker " + std::to_string(worker_id) + "] Started");
     
     while (!g_shutdown_requested && !frontier.is_shutdown()) {
-        // Get next URL from frontier (blocks if empty)
         auto url_opt = frontier.pop();
         if (!url_opt) {
-            // Shutdown or empty queue
             break;
         }
         
         std::string url = *url_opt;
         std::string domain = URLFrontierMT::extract_domain(url);
         
-        // Check robots.txt
         if (!robots_cache.is_allowed(url, domain, fetcher)) {
-            // Silently skip
             continue;
         }
         
-        // Update crawl delay from robots.txt
         auto crawl_delay = robots_cache.get_crawl_delay(domain);
         frontier.set_domain_delay(domain, crawl_delay);
         
-        // Fetch the page
         std::string content;
         bool fetch_success = fetcher.fetch(url, content);
         
-        // Mark domain as crawled (for rate limiting)
         frontier.mark_domain_crawled(domain);
         
         if (!fetch_success || content.empty()) {
             stats.pages_failed++;
-            // Record the failed attempt
             db.mark_crawled(url, 0, "", 0);
             continue;
         }
         
-        // Parse HTML to extract links
         auto doc = parser.parse(content, url);
         
-        // Compute content hash
         std::string content_hash = std::to_string(std::hash<std::string>{}(content));
         
-        // Store HTML in S3
         if (!s3.put(content_hash, content)) {
             Logger::info("[Worker " + std::to_string(worker_id) + "] S3 store failed: " + url);
             stats.pages_failed++;
             continue;
         }
         
-        // Record in database (200 since fetch succeeded)
         if (!db.mark_crawled(url, 200, content_hash, content.size())) {
             Logger::info("[Worker " + std::to_string(worker_id) + "] DB update failed: " + url);
             stats.pages_failed++;
             continue;
         }
         
-        // Add discovered links to frontier
         std::vector<std::string> new_urls;
         for (const auto& link : doc.links) {
             if (!link.url.empty() && 
@@ -198,9 +165,8 @@ void crawler_worker(
                 new_urls.push_back(link.url);
             }
         }
-        frontier.add_batch(new_urls, 0);  // Lower priority than seeds
+        frontier.add_batch(new_urls, 0);
         
-        // Update stats
         stats.pages_crawled++;
         stats.bytes_downloaded += content.size();
         stats.links_extracted += doc.links.size();
@@ -209,9 +175,6 @@ void crawler_worker(
     Logger::info("[Worker " + std::to_string(worker_id) + "] Stopped");
 }
 
-//=============================================================================
-// Usage
-//=============================================================================
 void print_usage(const char* program) {
     std::cout << "Usage: " << program << " [options]\n"
               << "\nOptions:\n"
@@ -231,11 +194,7 @@ void print_usage(const char* program) {
               << std::endl;
 }
 
-//=============================================================================
-// Main
-//=============================================================================
 int main(int argc, char** argv) {
-    // Parse arguments
     std::vector<std::string> seed_urls;
     std::string seeds_file;
     int64_t max_pages = -1;
@@ -268,7 +227,6 @@ int main(int argc, char** argv) {
         }
     }
     
-    // Setup signal handlers
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
     
@@ -282,9 +240,6 @@ int main(int argc, char** argv) {
         Logger::info("Threads: " + std::to_string(num_threads));
         Logger::info("Default delay: " + std::to_string(default_delay_ms) + "ms");
         
-        //=====================================================================
-        // Test mode
-        //=====================================================================
         if (test_mode) {
             Logger::info("Running in test mode");
             
@@ -316,15 +271,11 @@ int main(int argc, char** argv) {
             return 0;
         }
         
-        //=====================================================================
-        // Load seed URLs
-        //=====================================================================
         if (!seeds_file.empty()) {
             std::ifstream file(seeds_file);
             if (file.is_open()) {
                 std::string line;
                 while (std::getline(file, line)) {
-                    // Trim whitespace
                     size_t start = line.find_first_not_of(" \t\r\n");
                     if (start == std::string::npos) continue;
                     size_t end = line.find_last_not_of(" \t\r\n");
@@ -341,7 +292,6 @@ int main(int argc, char** argv) {
             }
         }
         
-        // Default seeds if none provided
         if (seed_urls.empty()) {
             seed_urls = {
                 "https://www.wikipedia.org/",
@@ -351,10 +301,6 @@ int main(int argc, char** argv) {
         }
         
         Logger::info("Seed URLs: " + std::to_string(seed_urls.size()));
-        
-        //=====================================================================
-        // Initialize components
-        //=====================================================================
         Logger::info("Initializing components...");
         
         // PostgreSQL (shared, thread-safe with connection per operation)
@@ -390,20 +336,15 @@ int main(int argc, char** argv) {
         
         // Add seed URLs with high priority
         for (const auto& url : seed_urls) {
-            frontier.add(url, 100);  // High priority for seeds
+            frontier.add(url, 100);
         }
         Logger::info("Added " + std::to_string(seed_urls.size()) + " seed URLs");
         
-        // Robots cache (thread-safe)
         RobotsCache robots_cache;
         
-        // Stats (atomic)
         CrawlerStats stats;
         stats.start();
         
-        //=====================================================================
-        // Start worker threads
-        //=====================================================================
         Logger::info("Starting " + std::to_string(num_threads) + " worker threads...");
         
         std::vector<std::thread> workers;
@@ -417,32 +358,24 @@ int main(int argc, char** argv) {
                                  std::ref(stats));
         }
         
-        //=====================================================================
-        // Main monitoring loop
-        //=====================================================================
         Logger::info("Crawler running. Press Ctrl+C to stop.");
         
         auto last_progress = std::chrono::steady_clock::now();
         
         while (!g_shutdown_requested) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            
-            // Check max pages limit
+            std::this_thread::sleep_for(std::chrono::seconds(1));            
             if (max_pages > 0 && stats.pages_crawled >= static_cast<uint64_t>(max_pages)) {
                 Logger::info("Reached max pages limit (" + std::to_string(max_pages) + ")");
                 break;
             }
             
-            // Log progress every 10 seconds
             auto now = std::chrono::steady_clock::now();
             if (std::chrono::duration_cast<std::chrono::seconds>(now - last_progress).count() >= 10) {
                 stats.log_progress(frontier.size());
                 last_progress = now;
             }
             
-            // Check if queue is empty and all workers idle
             if (frontier.empty() && stats.pages_crawled > 0) {
-                // Give workers a moment to finish
                 std::this_thread::sleep_for(std::chrono::seconds(2));
                 if (frontier.empty()) {
                     Logger::info("Queue empty, stopping...");
@@ -451,20 +384,14 @@ int main(int argc, char** argv) {
             }
         }
         
-        //=====================================================================
-        // Shutdown
-        //=====================================================================
         Logger::info("Shutting down...");
         frontier.shutdown();
         
-        // Wait for workers to finish
         for (auto& worker : workers) {
             if (worker.joinable()) {
                 worker.join();
             }
-        }
-        
-        // Final stats
+        }        
         stats.log_progress(frontier.size());
         
         Logger::info("Crawler stopped");

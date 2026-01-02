@@ -5,14 +5,8 @@
 
 namespace search {
 
-//=============================================================================
-// Constructor
-//=============================================================================
 URLFrontierMT::URLFrontierMT() = default;
 
-//=============================================================================
-// Configuration
-//=============================================================================
 void URLFrontierMT::set_default_delay(std::chrono::milliseconds delay) {
     std::lock_guard<std::mutex> lock(domain_mutex_);
     default_delay_ = delay;
@@ -23,21 +17,16 @@ void URLFrontierMT::set_domain_delay(const std::string& domain, std::chrono::mil
     domain_delays_[domain] = delay;
 }
 
-//=============================================================================
-// URL Normalization
-//=============================================================================
 std::string URLFrontierMT::normalize_url(const std::string& url) {
     if (url.empty()) return "";
     
     std::string normalized = url;
     
-    // Remove fragment
     size_t hash_pos = normalized.find('#');
     if (hash_pos != std::string::npos) {
         normalized = normalized.substr(0, hash_pos);
     }
     
-    // Parse scheme
     size_t scheme_end = normalized.find("://");
     if (scheme_end == std::string::npos) return "";
     
@@ -50,7 +39,6 @@ std::string URLFrontierMT::normalize_url(const std::string& url) {
     size_t host_start = scheme_end + 3;
     size_t path_start = normalized.find('/', host_start);
     
-    // Extract and lowercase host
     std::string host;
     std::string path_and_query;
     
@@ -62,11 +50,9 @@ std::string URLFrontierMT::normalize_url(const std::string& url) {
         path_and_query = normalized.substr(path_start);
     }
     
-    // Lowercase host
     std::transform(host.begin(), host.end(), host.begin(),
                    [](unsigned char c) { return std::tolower(c); });
     
-    // Remove default ports
     if (scheme == "http" && host.size() > 3) {
         size_t port_pos = host.rfind(":80");
         if (port_pos != std::string::npos && port_pos == host.size() - 3) {
@@ -79,12 +65,10 @@ std::string URLFrontierMT::normalize_url(const std::string& url) {
         }
     }
     
-    // Remove trailing slash if it's just the root
     if (path_and_query == "/") {
         // Keep it
     } else if (!path_and_query.empty() && path_and_query.back() == '/' &&
                path_and_query.find('?') == std::string::npos) {
-        // Remove trailing slash from paths (but not if there's a query string)
         path_and_query.pop_back();
     }
     
@@ -105,22 +89,17 @@ std::string URLFrontierMT::extract_domain(const std::string& url) {
         host = url.substr(host_start, host_end - host_start);
     }
     
-    // Remove port
     size_t port_pos = host.find(':');
     if (port_pos != std::string::npos) {
         host = host.substr(0, port_pos);
     }
     
-    // Lowercase
     std::transform(host.begin(), host.end(), host.begin(),
                    [](unsigned char c) { return std::tolower(c); });
     
     return host;
 }
 
-//=============================================================================
-// Add URLs
-//=============================================================================
 bool URLFrontierMT::add(const std::string& url, int priority) {
     std::string normalized = normalize_url(url);
     if (normalized.empty()) return false;
@@ -128,7 +107,6 @@ bool URLFrontierMT::add(const std::string& url, int priority) {
     std::string domain = extract_domain(normalized);
     if (domain.empty()) return false;
     
-    // Check deduplication
     {
         std::lock_guard<std::mutex> lock(seen_mutex_);
         if (seen_.count(normalized)) {
@@ -138,7 +116,6 @@ bool URLFrontierMT::add(const std::string& url, int priority) {
         seen_.insert(normalized);
     }
     
-    // Add to queue
     {
         std::lock_guard<std::mutex> lock(queue_mutex_);
         PrioritizedURL purl;
@@ -164,9 +141,6 @@ bool URLFrontierMT::add_batch(const std::vector<std::string>& urls, int priority
     return any_added;
 }
 
-//=============================================================================
-// Pop URL (blocking with rate limiting)
-//=============================================================================
 std::optional<std::string> URLFrontierMT::pop() {
     std::unique_lock<std::mutex> lock(queue_mutex_);
     
@@ -176,19 +150,13 @@ std::optional<std::string> URLFrontierMT::pop() {
         }
         
         if (queue_.empty()) {
-            // Wait for new URLs or shutdown
             queue_cv_.wait(lock);
             continue;
         }
         
-        // Get the top URL
         PrioritizedURL purl = queue_.top();
         queue_.pop();
-        
-        // Release queue lock while checking/waiting for rate limit
         lock.unlock();
-        
-        // Check and wait for rate limiting
         wait_for_domain(purl.domain);
         
         stats_.urls_popped++;
@@ -196,9 +164,6 @@ std::optional<std::string> URLFrontierMT::pop() {
     }
 }
 
-//=============================================================================
-// Rate Limiting
-//=============================================================================
 std::chrono::milliseconds URLFrontierMT::get_domain_delay(const std::string& domain) {
     std::lock_guard<std::mutex> lock(domain_mutex_);
     auto it = domain_delays_.find(domain);
@@ -243,9 +208,6 @@ void URLFrontierMT::wait_for_domain(const std::string& domain) {
     }
 }
 
-//=============================================================================
-// Status
-//=============================================================================
 bool URLFrontierMT::empty() const {
     std::lock_guard<std::mutex> lock(queue_mutex_);
     return queue_.empty();
@@ -261,9 +223,6 @@ size_t URLFrontierMT::seen_count() const {
     return seen_.size();
 }
 
-//=============================================================================
-// Shutdown
-//=============================================================================
 void URLFrontierMT::shutdown() {
     shutdown_ = true;
     queue_cv_.notify_all();

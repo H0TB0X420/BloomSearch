@@ -1,12 +1,7 @@
-//=============================================================================
-// Bloom Search - Indexer Main Loop
-// Processes crawled pages from storage into searchable inverted index
-//=============================================================================
-
 #include "common/config.h"
 #include "common/logger.h"
 #include "storage/postgres_client.h"
-#include "storage/rocksdb_client.h"
+#include "storage/rocksdb/rocksdb_client.h"
 #include "storage/s3_client.h"
 #include "storage/redis_client.h"
 #include "indexer/html_parser.h"
@@ -24,9 +19,6 @@
 
 using namespace search;
 
-//=============================================================================
-// Global state for graceful shutdown
-//=============================================================================
 std::atomic<bool> g_shutdown_requested{false};
 
 void signal_handler(int signal) {
@@ -36,9 +28,6 @@ void signal_handler(int signal) {
     }
 }
 
-//=============================================================================
-// Statistics tracking
-//=============================================================================
 struct IndexerStats {
     uint64_t pages_indexed = 0;
     uint64_t pages_failed = 0;
@@ -66,9 +55,6 @@ struct IndexerStats {
     }
 };
 
-//=============================================================================
-// Usage
-//=============================================================================
 void print_usage(const char* program) {
     std::cout << "Usage: " << program << " [options]\n"
               << "\nOptions:\n"
@@ -87,11 +73,7 @@ void print_usage(const char* program) {
               << std::endl;
 }
 
-//=============================================================================
-// Main
-//=============================================================================
 int main(int argc, char** argv) {
-    // Parse command line arguments
     int64_t max_pages = -1;
     int batch_size = 100;
     int progress_interval = 10;
@@ -116,7 +98,6 @@ int main(int argc, char** argv) {
         }
     }
     
-    // Setup signal handlers
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
     
@@ -129,9 +110,6 @@ int main(int argc, char** argv) {
         Logger::info("Starting Bloom Search Indexer");
         Logger::info("Version 1.0.0");
         
-        //=====================================================================
-        // Test mode - verify connections and exit
-        //=====================================================================
         if (test_mode) {
             Logger::info("Running in test mode");
             Logger::info("Configuration:");
@@ -141,12 +119,8 @@ int main(int argc, char** argv) {
             return 0;
         }
         
-        //=====================================================================
-        // Initialize components
-        //=====================================================================
         Logger::info("Initializing components...");
         
-        // PostgreSQL
         PostgresClient db;
         if (!db.connect()) {
             Logger::error("Failed to connect to PostgreSQL: " + db.last_error());
@@ -154,11 +128,9 @@ int main(int argc, char** argv) {
         }
         Logger::info("Connected to PostgreSQL");
         
-        // Schema migration - add indexed column if missing
         db.execute("ALTER TABLE pages ADD COLUMN IF NOT EXISTS indexed BOOLEAN DEFAULT FALSE");
         db.execute("CREATE INDEX IF NOT EXISTS idx_pages_indexed ON pages(indexed) WHERE indexed = FALSE");
         
-        // MinIO/S3
         S3Client s3;
         const char* s3_endpoint = std::getenv("S3_ENDPOINT");
         const char* s3_access_key = std::getenv("S3_ACCESS_KEY");
@@ -176,7 +148,6 @@ int main(int argc, char** argv) {
         }
         Logger::info("Connected to MinIO/S3");
         
-        // RocksDB Index
         const char* rocksdb_path = std::getenv("ROCKSDB_PATH");
         IndexBuilder index_builder;
         if (!index_builder.initialize(rocksdb_path ? rocksdb_path : "/data/rocksdb")) {
@@ -187,7 +158,6 @@ int main(int argc, char** argv) {
                      std::to_string(index_builder.document_count()) + ", terms: " +
                      std::to_string(index_builder.term_count()) + ")");
         
-        // Redis (optional)
         RedisClient redis;
         if (redis.connect()) {
             Logger::info("Connected to Redis cache");
@@ -197,9 +167,6 @@ int main(int argc, char** argv) {
         
         Logger::info("Indexer components initialized");
         
-        //=====================================================================
-        // Main indexing loop
-        //=====================================================================
         IndexerStats stats;
         stats.start();
         
@@ -210,13 +177,11 @@ int main(int argc, char** argv) {
                      ", batch_size: " + std::to_string(batch_size) + ")");
         
         while (!g_shutdown_requested) {
-            // Check if we've hit the limit
             if (max_pages > 0 && total_processed >= max_pages) {
                 Logger::info("Reached max pages limit (" + std::to_string(max_pages) + ")");
                 break;
             }
             
-            // Get batch of pending pages
             int batch_limit = batch_size;
             if (max_pages > 0) {
                 batch_limit = std::min(batch_limit, static_cast<int>(max_pages - total_processed));
@@ -232,11 +197,9 @@ int main(int argc, char** argv) {
             
             Logger::info("Processing batch of " + std::to_string(pending.size()) + " pages");
             
-            // Process each page in batch
             for (const auto& page : pending) {
                 if (g_shutdown_requested) break;
                 
-                // Fetch HTML from S3
                 auto html_opt = s3.get(page.content_hash);
                 if (!html_opt) {
                     Logger::info("[FAIL] " + page.url + " - S3 fetch failed: " + s3.last_error());
@@ -248,7 +211,6 @@ int main(int argc, char** argv) {
                 std::string html = *html_opt;
                 stats.bytes_processed += html.size();
                 
-                // Index the document
                 if (!index_builder.index_document(static_cast<uint64_t>(page.id), page.url, html)) {
                     Logger::info("[FAIL] " + page.url + " - Index failed: " + index_builder.last_error());
                     stats.pages_failed++;
@@ -256,7 +218,6 @@ int main(int argc, char** argv) {
                     continue;
                 }
                 
-                // Mark as indexed in PostgreSQL
                 if (!db.mark_page_indexed(page.id)) {
                     Logger::info("[FAIL] " + page.url + " - DB update failed: " + db.last_error());
                     stats.pages_failed++;
@@ -270,19 +231,14 @@ int main(int argc, char** argv) {
                 // Log individual page (debug level)
                 // Logger::info("[OK] " + page.url + " (" + std::to_string(html.size()) + " bytes)");
                 
-                // Log progress periodically
                 if (stats.pages_indexed % progress_interval == 0 && stats.pages_indexed > 0) {
                     stats.log_progress();
                 }
             }
             
-            // Flush index after each batch
             index_builder.flush();
         }
         
-        //=====================================================================
-        // Shutdown
-        //=====================================================================
         Logger::info("Flushing index...");
         index_builder.flush();
         

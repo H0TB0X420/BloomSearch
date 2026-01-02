@@ -5,11 +5,7 @@
 
 namespace search {
 
-//=============================================================================
-// Helper: Compute SHA256 hash of URL (simplified - use first 16 chars of hash)
-//=============================================================================
 std::string PostgresClient::compute_hash(const std::string& url) {
-    // Simple hash for now - in production, use proper SHA256
     std::hash<std::string> hasher;
     size_t hash = hasher(url);
     
@@ -18,22 +14,16 @@ std::string PostgresClient::compute_hash(const std::string& url) {
     return oss.str();
 }
 
-//=============================================================================
-// Connection Management (1.3.1)
-//=============================================================================
-
 PostgresClient::~PostgresClient() {
     disconnect();
 }
 
 bool PostgresClient::connect() {
-    // First try POSTGRES_CONNECTION env var
     const char* conn_str = std::getenv("POSTGRES_CONNECTION");
     if (conn_str) {
         return connect(std::string(conn_str));
     }
     
-    // Fall back to individual env vars
     const char* host = std::getenv("POSTGRES_HOST");
     const char* port_str = std::getenv("POSTGRES_PORT");
     const char* db = std::getenv("POSTGRES_DB");
@@ -45,7 +35,6 @@ bool PostgresClient::connect() {
         return connect(host, port, db, user, pass);
     }
     
-    // Default fallback
     return connect("host=localhost port=5432 dbname=postgres user=postgres password=postgres");
 }
 
@@ -90,17 +79,12 @@ bool PostgresClient::reconnect() {
     return connect(connection_string_);
 }
 
-//=============================================================================
-// Schema Management (1.3.2)
-//=============================================================================
-
 bool PostgresClient::initialize_schema() {
     if (!is_connected()) return false;
     
     try {
         pqxx::work txn(*conn_);
         
-        // Pages table
         txn.exec(R"(
             CREATE TABLE IF NOT EXISTS pages (
                 id SERIAL PRIMARY KEY,
@@ -118,23 +102,19 @@ bool PostgresClient::initialize_schema() {
             )
         )");
         
-        // Index on url_hash for fast lookups
         txn.exec(R"(
             CREATE INDEX IF NOT EXISTS idx_pages_url_hash ON pages(url_hash)
         )");
         
-        // Index on domain for per-domain queries
         txn.exec(R"(
             CREATE INDEX IF NOT EXISTS idx_pages_domain ON pages(domain)
         )");
         
-        // Index for finding unindexed pages
         txn.exec(R"(
             CREATE INDEX IF NOT EXISTS idx_pages_unindexed 
             ON pages(crawled_at) WHERE indexed = FALSE
         )");
         
-        // Frontier state table
         txn.exec(R"(
             CREATE TABLE IF NOT EXISTS frontier_state (
                 id SERIAL PRIMARY KEY,
@@ -152,10 +132,6 @@ bool PostgresClient::initialize_schema() {
         return false;
     }
 }
-
-//=============================================================================
-// Page CRUD Operations (1.3.3)
-//=============================================================================
 
 bool PostgresClient::upsert_page(const PageRecord& page) {
     if (!is_connected()) return false;
@@ -399,20 +375,14 @@ int64_t PostgresClient::get_indexed_page_count() {
     }
 }
 
-//=============================================================================
-// Frontier Persistence (1.3.4)
-//=============================================================================
-
 bool PostgresClient::save_frontier(const std::vector<FrontierEntry>& entries) {
     if (!is_connected()) return false;
     
     try {
         pqxx::work txn(*conn_);
         
-        // Clear existing frontier state
         txn.exec("TRUNCATE frontier_state");
         
-        // Batch insert
         for (const auto& entry : entries) {
             txn.exec_params(
                 "INSERT INTO frontier_state (url, domain, priority) VALUES ($1, $2, $3)",
@@ -468,10 +438,6 @@ bool PostgresClient::clear_frontier() {
         return false;
     }
 }
-
-//=============================================================================
-// Raw SQL Execution
-//=============================================================================
 
 bool PostgresClient::execute(const std::string& sql) {
     if (!is_connected()) return false;

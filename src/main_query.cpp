@@ -1,7 +1,7 @@
 #include "common/config.h"
 #include "common/logger.h"
 #include "storage/postgres_client.h"
-#include "storage/rocksdb_client.h"
+#include "storage/rocksdb/rocksdb_client.h"
 #include "storage/redis_client.h"
 #include "query/query_parser.h"
 #include "query/ranker.h"

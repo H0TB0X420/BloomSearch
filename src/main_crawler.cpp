@@ -18,9 +18,6 @@
 
 namespace search {
 
-//=============================================================================
-// Global shutdown flag for signal handling
-//=============================================================================
 std::atomic<bool> g_shutdown_requested{false};
 
 void signal_handler(int signum) {
@@ -30,9 +27,6 @@ void signal_handler(int signum) {
     }
 }
 
-//=============================================================================
-// Crawler class - orchestrates all components
-//=============================================================================
 class Crawler {
 public:
     Crawler() = default;
@@ -41,28 +35,23 @@ public:
     void run(int max_pages = 100);
     void shutdown();
     
-    // Stats
     int pages_crawled() const { return pages_crawled_; }
     int pages_failed() const { return pages_failed_; }
     
 private:
-    // Components
     HTTPFetcher fetcher_;
     RobotsParser robots_;
     URLFrontier frontier_;
     PostgresClient db_;
     S3Client storage_;
     
-    // Stats
     int pages_crawled_ = 0;
     int pages_failed_ = 0;
     std::chrono::steady_clock::time_point start_time_;
     
-    // Configuration
     std::string user_agent_ = "BloomSearchBot/1.0";
     int default_crawl_delay_ms_ = 1000;  // 1 second default politeness
     
-    // Helper methods
     bool crawl_url(const std::string& url);
     std::vector<std::string> extract_links(const std::string& html, const std::string& base_url);
     std::string normalize_url(const std::string& url, const std::string& base_url);
@@ -71,55 +60,42 @@ private:
     void load_seed_urls();
 };
 
-//=============================================================================
-// Initialize all components
-//=============================================================================
 bool Crawler::initialize() {
     std::cout << "[CRAWLER] Initializing components...\n";
     
-    // HTTPFetcher uses defaults from constructor - no setters needed for now
     std::cout << "[CRAWLER] HTTPFetcher configured\n";
     
-    // Connect to PostgreSQL
     if (!db_.connect()) {
         std::cerr << "[CRAWLER] ERROR: Failed to connect to PostgreSQL\n";
         return false;
     }
     std::cout << "[CRAWLER] PostgreSQL connected\n";
     
-    // Initialize database schema
     if (!db_.initialize_schema()) {
         std::cerr << "[CRAWLER] ERROR: Failed to initialize database schema\n";
         return false;
     }
     std::cout << "[CRAWLER] Database schema initialized\n";
     
-    // Connect to MinIO/S3
     if (!storage_.connect()) {
         std::cerr << "[CRAWLER] ERROR: Failed to connect to MinIO: " << storage_.last_error() << "\n";
         return false;
     }
     std::cout << "[CRAWLER] MinIO/S3 connected\n";
     
-    // Load seed URLs
     load_seed_urls();
     
     std::cout << "[CRAWLER] Initialization complete. Frontier size: " << frontier_.pending_count() << "\n";
     return true;
 }
 
-//=============================================================================
-// Load seed URLs into frontier
-//=============================================================================
 void Crawler::load_seed_urls() {
-    // Default seed URLs - can be overridden by config/file
     std::vector<std::string> seeds = {
         "https://example.com",
         "https://www.wikipedia.org",
         "https://news.ycombinator.com"
     };
     
-    // Check for SEED_URLS environment variable
     const char* env_seeds = std::getenv("SEED_URLS");
     if (env_seeds) {
         seeds.clear();
@@ -138,90 +114,71 @@ void Crawler::load_seed_urls() {
     }
 }
 
-//=============================================================================
-// Main crawl loop
-//=============================================================================
 void Crawler::run(int max_pages) {
     std::cout << "[CRAWLER] Starting crawl (max " << max_pages << " pages)...\n";
     start_time_ = std::chrono::steady_clock::now();
     
     while (!g_shutdown_requested && pages_crawled_ < max_pages) {
-        // Get next URL from frontier
         auto next_url = frontier_.get_next();
         
         if (!next_url.has_value()) {
-            // No URLs available - either empty or all rate-limited
             if (frontier_.empty()) {
                 std::cout << "[CRAWLER] Frontier empty, stopping.\n";
                 break;
             }
-            // Wait a bit and retry
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
         
-        // Crawl the URL
         if (crawl_url(*next_url)) {
             pages_crawled_++;
         } else {
             pages_failed_++;
         }
         
-        // Log progress every 10 pages
         if ((pages_crawled_ + pages_failed_) % 10 == 0) {
             log_progress();
         }
     }
     
-    log_progress();  // Final stats
+    log_progress();
     
     if (g_shutdown_requested) {
         std::cout << "[CRAWLER] Shutdown requested, saving state...\n";
     }
 }
 
-//=============================================================================
-// Crawl a single URL
-//=============================================================================
 bool Crawler::crawl_url(const std::string& url) {
     std::string domain = get_domain(url);
     
-    // Check robots.txt
     if (!robots_.is_allowed_url(url, fetcher_, user_agent_)) {
         std::cout << "[CRAWLER] Blocked by robots.txt: " << url << "\n";
         return false;
     }
     
-    // Get crawl delay from robots.txt
     int crawl_delay = robots_.get_crawl_delay_for(url, fetcher_, user_agent_);
     if (crawl_delay <= 0) {
         crawl_delay = default_crawl_delay_ms_ / 1000;
     }
     
-    // Update frontier with crawl delay for this domain
     frontier_.set_crawl_delay(domain, crawl_delay * 1000);
     
-    // Fetch the page
     std::string content;
     if (!fetcher_.fetch(url, content)) {
         std::cout << "[CRAWLER] Fetch failed: " << url << "\n";
         return false;
     }
     
-    // Get status code from fetcher (if available) or assume 200 on success
-    int status_code = 200;  // fetch() succeeded
-    
-    // Store content in S3 (compressed)
+    int status_code = 200;
+
     std::string content_key = S3Client::url_to_key(url);
     if (!storage_.put(content_key, content, true)) {
         std::cerr << "[CRAWLER] Failed to store content: " << storage_.last_error() << "\n";
-        // Continue anyway - metadata is still valuable
     }
     
-    // Store metadata in PostgreSQL
     PageRecord record;
     record.url = url;
-    record.url_hash = content_key;  // Reuse the hash
+    record.url_hash = content_key;
     record.domain = domain;
     record.status_code = status_code;
     record.content_size = static_cast<int64_t>(content.size());
@@ -231,7 +188,6 @@ bool Crawler::crawl_url(const std::string& url) {
         std::cerr << "[CRAWLER] Failed to store metadata\n";
     }
     
-    // Extract and queue links
     auto links = extract_links(content, url);
     int new_links = 0;
     for (const auto& link : links) {
@@ -246,9 +202,6 @@ bool Crawler::crawl_url(const std::string& url) {
     return true;
 }
 
-//=============================================================================
-// Extract links from HTML (basic implementation)
-//=============================================================================
 std::vector<std::string> Crawler::extract_links(const std::string& html, const std::string& base_url) {
     std::vector<std::string> links;
     
@@ -262,14 +215,12 @@ std::vector<std::string> Crawler::extract_links(const std::string& html, const s
     for (auto it = begin; it != end; ++it) {
         std::string href = (*it)[1].str();
         
-        // Skip non-http links
         if (href.empty() || href[0] == '#' || 
             href.find("javascript:") == 0 || 
             href.find("mailto:") == 0) {
             continue;
         }
         
-        // Normalize relative URLs
         std::string absolute_url = normalize_url(href, base_url);
         
         if (!absolute_url.empty()) {
@@ -280,16 +231,11 @@ std::vector<std::string> Crawler::extract_links(const std::string& html, const s
     return links;
 }
 
-//=============================================================================
-// Normalize URL (convert relative to absolute)
-//=============================================================================
 std::string Crawler::normalize_url(const std::string& url, const std::string& base_url) {
-    // Already absolute
     if (url.find("http://") == 0 || url.find("https://") == 0) {
         return url;
     }
     
-    // Parse base URL
     std::string base_scheme, base_host, base_path;
     
     auto scheme_end = base_url.find("://");
@@ -307,17 +253,14 @@ std::string Crawler::normalize_url(const std::string& url, const std::string& ba
         base_path = base_url.substr(path_start);
     }
     
-    // Protocol-relative URL
     if (url.find("//") == 0) {
         return base_scheme + ":" + url;
     }
     
-    // Absolute path
     if (url[0] == '/') {
         return base_scheme + "://" + base_host + url;
     }
     
-    // Relative path - append to base path's directory
     size_t last_slash = base_path.rfind('/');
     std::string base_dir = (last_slash != std::string::npos) 
                            ? base_path.substr(0, last_slash + 1) 
@@ -326,9 +269,6 @@ std::string Crawler::normalize_url(const std::string& url, const std::string& ba
     return base_scheme + "://" + base_host + base_dir + url;
 }
 
-//=============================================================================
-// Extract domain from URL
-//=============================================================================
 std::string Crawler::get_domain(const std::string& url) {
     auto scheme_end = url.find("://");
     if (scheme_end == std::string::npos) return url;
@@ -342,9 +282,6 @@ std::string Crawler::get_domain(const std::string& url) {
     return url.substr(host_start, host_end - host_start);
 }
 
-//=============================================================================
-// Log progress statistics
-//=============================================================================
 void Crawler::log_progress() {
     auto now = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start_time_).count();
@@ -361,14 +298,9 @@ void Crawler::log_progress() {
     std::cout << "========================================\n\n";
 }
 
-//=============================================================================
-// Graceful shutdown
-//=============================================================================
 void Crawler::shutdown() {
     std::cout << "[CRAWLER] Shutting down...\n";
     
-    // Note: Frontier state persistence can be added later
-    // For now, just log the remaining URLs
     std::cout << "[CRAWLER] URLs remaining in frontier: " << frontier_.pending_count() << "\n";
     
     std::cout << "[CRAWLER] Shutdown complete.\n";
@@ -376,9 +308,6 @@ void Crawler::shutdown() {
 
 } // namespace search
 
-//=============================================================================
-// Main entry point
-//=============================================================================
 int main(int argc, char* argv[]) {
     std::cout << "\n";
     std::cout << "============================================================\n";

@@ -77,22 +77,18 @@ std::optional<URLNormalizer::URLComponents> URLNormalizer::parse(const std::stri
     // 3. Find port separator WITHIN authority
     auto port_sep = authority.find(':');
     if (port_sep != std::string_view::npos) {
-        // Has port
         comp.host = std::string(authority.substr(0, port_sep));
         std::string_view port_sv = authority.substr(port_sep + 1);
         if (!port_sv.empty()) {
             std::from_chars(port_sv.data(), port_sv.data() + port_sv.size(), comp.port);
         }
     } else {
-        // No port
         comp.host = std::string(authority);
     }
 
-    // Lowercase the host
     std::ranges::transform(comp.host, comp.host.begin(), 
                            [](unsigned char c) { return std::tolower(c); });
 
-    // Move past authority
     remaining = (authority_end == std::string_view::npos) ? "" : remaining.substr(authority_end);
 
     // 4. Find path
@@ -124,7 +120,6 @@ std::string URLNormalizer::build(const URLComponents& components) {
     
     oss << components.scheme << "://" << components.host;
     
-    // Add port only if non-default
     if (components.port != -1) {
         bool is_default = (components.scheme == "http" && components.port == 80) ||
                           (components.scheme == "https" && components.port == 443);
@@ -133,13 +128,11 @@ std::string URLNormalizer::build(const URLComponents& components) {
         }
     }
     
-    // Path (ensure starts with /)
     if (components.path.empty() || components.path[0] != '/') {
         oss << "/";
     }
     oss << components.path;
     
-    // Query (if present)
     if (!components.query.empty()) {
         oss << "?" << components.query;
     }
@@ -223,12 +216,10 @@ std::optional<std::string> URLFrontier::get_next() {
         queue_.pop();
         
         if (can_crawl_domain(entry.domain)) {
-            // Found a URL we can crawl
             update_domain_time(entry.domain);
             result = entry.url;
             break;
         } else {
-            // Domain is rate-limited, skip for now
             skipped.push_back(std::move(entry));
         }
     }
@@ -253,17 +244,14 @@ bool URLFrontier::load_seeds(const std::string& filepath) {
     
     std::string line;
     while (std::getline(file, line)) {
-        // Trim whitespace
         size_t start = line.find_first_not_of(" \t\r\n");
-        if (start == std::string::npos) continue;  // Empty line
+        if (start == std::string::npos) continue;
         
         size_t end = line.find_last_not_of(" \t\r\n");
         line = line.substr(start, end - start + 1);
         
-        // Skip comments
         if (line.empty() || line[0] == '#') continue;
         
-        // Add as seed
         add(line, Priority::SEED);
     }
     

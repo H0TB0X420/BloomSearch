@@ -1,4 +1,3 @@
-// include/crawler/robots_parser.h
 #pragma once
 
 #include <string>
@@ -12,8 +11,8 @@
 namespace search {
 
 struct RobotsRule {
-    bool allow;           // true = Allow, false = Disallow
-    std::string path;     // The path pattern
+    bool allow;           
+    std::string path; 
 };
 
 struct AgentRules {
@@ -39,11 +38,9 @@ public:
 
     bool fetch(const std::string& domain, HTTPFetcher& fetcher);
     
-    // Check if URL is allowed (fetches robots.txt if needed)
     bool is_allowed_url(const std::string& url, HTTPFetcher& fetcher,
                         const std::string& bot_name = "BloomSearchBot");
     
-    // Get crawl delay for domain (fetches if needed)
     int get_crawl_delay_for(const std::string& url, HTTPFetcher& fetcher,
                             const std::string& bot_name = "BloomSearchBot");
 
