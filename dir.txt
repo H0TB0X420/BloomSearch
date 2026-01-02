@@ -1,0 +1,315 @@
+.
+├── CMakeLists.txt
+├── Dockerfile
+├── Makefile
+├── README.md
+├── build
+│   ├── CMakeCache.txt
+│   ├── CMakeFiles
+│   │   ├── 3.22.1
+│   │   │   ├── CMakeCXXCompiler.cmake
+│   │   │   ├── CMakeDetermineCompilerABI_CXX.bin
+│   │   │   ├── CMakeSystem.cmake
+│   │   │   └── CompilerIdCXX
+│   │   │       ├── CMakeCXXCompilerId.cpp
+│   │   │       ├── a.out
+│   │   │       └── tmp
+│   │   ├── CMakeOutput.log
+│   │   ├── CMakeTmp
+│   │   ├── TargetDirectories.txt
+│   │   ├── cmake.check_cache
+│   │   ├── common.dir
+│   │   │   └── src
+│   │   │       └── common
+│   │   │           ├── config.cpp.o
+│   │   │           ├── logger.cpp.o
+│   │   │           ├── text_processor.cpp.o
+│   │   │           └── utils.cpp.o
+│   │   ├── crawler.dir
+│   │   │   └── src
+│   │   │       └── main_crawler.cpp.o
+│   │   ├── crawler_lib.dir
+│   │   │   └── src
+│   │   │       └── crawler
+│   │   │           ├── http_fetcher.cpp.o
+│   │   │           ├── robots_parser.cpp.o
+│   │   │           ├── url_frontier.cpp.o
+│   │   │           └── url_frontier_mt.cpp.o
+│   │   ├── crawler_mt.dir
+│   │   │   └── src
+│   │   │       └── main_crawler_mt.cpp.o
+│   │   ├── indexer.dir
+│   │   │   └── src
+│   │   │       └── main_indexer.cpp.o
+│   │   ├── indexer_lib.dir
+│   │   │   └── src
+│   │   │       └── indexer
+│   │   │           ├── ai_detector.cpp.o
+│   │   │           ├── html_parser.cpp.o
+│   │   │           ├── index_builder.cpp.o
+│   │   │           └── tokenizer.cpp.o
+│   │   ├── query_engine.dir
+│   │   │   └── src
+│   │   │       └── main_query.cpp.o
+│   │   ├── query_lib.dir
+│   │   │   └── src
+│   │   │       └── query
+│   │   │           ├── query_parser.cpp.o
+│   │   │           ├── ranker.cpp.o
+│   │   │           └── result_formatter.cpp.o
+│   │   ├── rules.ninja
+│   │   ├── storage.dir
+│   │   │   └── src
+│   │   │       └── storage
+│   │   │           ├── postgres_client.cpp.o
+│   │   │           ├── redis_client.cpp.o
+│   │   │           ├── rocksdb_client.cpp.o
+│   │   │           └── s3_client.cpp.o
+│   │   ├── test_crawler_integration.dir
+│   │   │   └── tests
+│   │   │       └── integration
+│   │   │           └── test_crawler_integration.cpp.o
+│   │   ├── test_crawler_mt.dir
+│   │   │   └── tests
+│   │   │       └── integration
+│   │   │           └── test_crawler_mt.cpp.o
+│   │   ├── test_html_parser.dir
+│   │   │   └── tests
+│   │   │       └── indexer
+│   │   │           └── test_html_parser.cpp.o
+│   │   ├── test_html_parser1.dir
+│   │   │   └── tests
+│   │   │       └── indexer
+│   │   │           └── test_html_parser1.cpp.o
+│   │   ├── test_http_fetcher.dir
+│   │   │   └── tests
+│   │   │       └── test_http_fetcher.cpp.o
+│   │   ├── test_index_builder.dir
+│   │   │   └── tests
+│   │   │       └── indexer
+│   │   │           └── test_index_builder.cpp.o
+│   │   ├── test_postgres_additional.dir
+│   │   │   └── tests
+│   │   │       └── storage
+│   │   │           └── test_postgres_additional.cpp.o
+│   │   ├── test_postgres_client.dir
+│   │   │   └── tests
+│   │   │       └── storage
+│   │   │           └── test_postgres_client.cpp.o
+│   │   ├── test_query_parser.dir
+│   │   │   └── tests
+│   │   │       └── query
+│   │   │           └── test_query_parser.cpp.o
+│   │   ├── test_ranker.dir
+│   │   │   └── tests
+│   │   │       └── query
+│   │   │           └── test_ranker.cpp.o
+│   │   ├── test_redis_client.dir
+│   │   │   └── tests
+│   │   │       └── storage
+│   │   │           └── test_redis_client.cpp.o
+│   │   ├── test_robots_parser1.dir
+│   │   │   └── tests
+│   │   │       └── robots_parser
+│   │   │           └── test_robots_parser1.cpp.o
+│   │   ├── test_robots_parser2.dir
+│   │   │   └── tests
+│   │   │       └── robots_parser
+│   │   │           └── test_robots_parser2.cpp.o
+│   │   ├── test_robots_parser3.dir
+│   │   │   └── tests
+│   │   │       └── robots_parser
+│   │   │           └── test_robots_parser3.cpp.o
+│   │   ├── test_robots_parser4.dir
+│   │   │   └── tests
+│   │   │       └── robots_parser
+│   │   │           └── test_robots_parser4.cpp.o
+│   │   ├── test_robots_parser5.dir
+│   │   │   └── tests
+│   │   │       └── robots_parser
+│   │   │           └── test_robots_parser5.cpp.o
+│   │   ├── test_robots_parser6.dir
+│   │   │   └── tests
+│   │   │       └── robots_parser
+│   │   │           └── test_robots_parser6.cpp.o
+│   │   ├── test_rocksdb_client.dir
+│   │   │   └── tests
+│   │   │       └── storage
+│   │   │           └── test_rocksdb_client.cpp.o
+│   │   ├── test_s3_client.dir
+│   │   │   └── tests
+│   │   │       └── storage
+│   │   │           └── test_s3_client.cpp.o
+│   │   ├── test_text_processor.dir
+│   │   │   └── tests
+│   │   │       └── common
+│   │   │           └── test_text_processor.cpp.o
+│   │   ├── test_tokenizer.dir
+│   │   │   └── tests
+│   │   │       └── indexer
+│   │   │           └── test_tokenizer.cpp.o
+│   │   ├── test_url_frontier1.dir
+│   │   │   └── tests
+│   │   │       └── url_frontier
+│   │   │           └── test_url_frontier1.cpp.o
+│   │   ├── test_url_frontier2.dir
+│   │   │   └── tests
+│   │   │       └── url_frontier
+│   │   │           └── test_url_frontier2.cpp.o
+│   │   ├── test_url_frontier3.dir
+│   │   │   └── tests
+│   │   │       └── url_frontier
+│   │   │           └── test_url_frontier3.cpp.o
+│   │   ├── test_url_frontier4.dir
+│   │   │   └── tests
+│   │   │       └── url_frontier
+│   │   │           └── test_url_frontier4.cpp.o
+│   │   ├── test_url_frontier5.dir
+│   │   │   └── tests
+│   │   │       └── url_frontier
+│   │   │           └── test_url_frontier5.cpp.o
+│   │   └── test_url_frontier6.dir
+│   │       └── tests
+│   │           └── url_frontier
+│   │               └── test_url_frontier6.cpp.o
+│   ├── build.ninja
+│   ├── cmake_install.cmake
+│   ├── compile_commands.json
+│   ├── crawler
+│   ├── crawler_mt
+│   ├── indexer
+│   ├── libcommon.a
+│   ├── libcrawler_lib.a
+│   ├── libindexer_lib.a
+│   ├── libquery_lib.a
+│   ├── libstorage.a
+│   ├── query_engine
+│   ├── test_crawler_integration
+│   ├── test_crawler_mt
+│   ├── test_html_parser
+│   ├── test_html_parser1
+│   ├── test_http_fetcher
+│   ├── test_index_builder
+│   ├── test_postgres_additional
+│   ├── test_postgres_client
+│   ├── test_query_parser
+│   ├── test_ranker
+│   ├── test_redis_client
+│   ├── test_robots_parser1
+│   ├── test_robots_parser2
+│   ├── test_robots_parser3
+│   ├── test_robots_parser4
+│   ├── test_robots_parser5
+│   ├── test_robots_parser6
+│   ├── test_rocksdb_client
+│   ├── test_s3_client
+│   ├── test_text_processor
+│   ├── test_tokenizer
+│   ├── test_url_frontier1
+│   ├── test_url_frontier2
+│   ├── test_url_frontier3
+│   ├── test_url_frontier4
+│   ├── test_url_frontier5
+│   └── test_url_frontier6
+├── dir.txt
+├── docker-compose.prod.yml
+├── docker-compose.yml
+├── docs
+│   ├── ROADMAP.md
+│   └── docker_architecture.md
+├── include
+│   ├── common
+│   │   ├── config.h
+│   │   ├── logger.h
+│   │   ├── search_types.h
+│   │   ├── text_processor.h
+│   │   └── utils.h
+│   ├── crawler
+│   │   ├── http_fetcher.h
+│   │   ├── robots_parser.h
+│   │   ├── url_frontier.h
+│   │   └── url_frontier_mt.h
+│   ├── indexer
+│   │   ├── ai_detector.h
+│   │   ├── html_parser.h
+│   │   ├── index_builder.h
+│   │   └── tokenizer.h
+│   ├── query
+│   │   ├── query_parser.h
+│   │   ├── ranker.h
+│   │   └── result_formatter.h
+│   └── storage
+│       ├── postgres_client.h
+│       ├── redis_client.h
+│       ├── rocksdb_client.h
+│       └── s3_client.h
+├── notes.txt
+├── roadmap.md
+├── scripts
+├── sql
+│   └── init.sql
+├── src
+│   ├── common
+│   │   ├── config.cpp
+│   │   ├── logger.cpp
+│   │   ├── text_processor.cpp
+│   │   └── utils.cpp
+│   ├── crawler
+│   │   ├── http_fetcher.cpp
+│   │   ├── robots_parser.cpp
+│   │   ├── url_frontier.cpp
+│   │   └── url_frontier_mt.cpp
+│   ├── indexer
+│   │   ├── ai_detector.cpp
+│   │   ├── html_parser.cpp
+│   │   ├── index_builder.cpp
+│   │   └── tokenizer.cpp
+│   ├── main_crawler.cpp
+│   ├── main_crawler_mt.cpp
+│   ├── main_indexer.cpp
+│   ├── main_query.cpp
+│   ├── query
+│   │   ├── query_parser.cpp
+│   │   ├── ranker.cpp
+│   │   └── result_formatter.cpp
+│   └── storage
+│       ├── postgres_client.cpp
+│       ├── redis_client.cpp
+│       ├── rocksdb_client.cpp
+│       └── s3_client.cpp
+└── tests
+    ├── common
+    │   └── test_text_processor.cpp
+    ├── indexer
+    │   ├── test_html_parser.cpp
+    │   ├── test_index_builder.cpp
+    │   └── test_tokenizer.cpp
+    ├── integration
+    │   ├── test_crawler_integration.cpp
+    │   └── test_crawler_mt.cpp
+    ├── query
+    │   ├── test_query_parser.cpp
+    │   └── test_ranker.cpp
+    ├── robots_parser
+    │   ├── test_robots_parser1.cpp
+    │   ├── test_robots_parser2.cpp
+    │   ├── test_robots_parser3.cpp
+    │   ├── test_robots_parser4.cpp
+    │   ├── test_robots_parser5.cpp
+    │   └── test_robots_parser6.cpp
+    ├── storage
+    │   ├── test_postgres_additional.cpp
+    │   ├── test_postgres_client.cpp
+    │   ├── test_redis_client.cpp
+    │   ├── test_rocksdb_client.cpp
+    │   └── test_s3_client.cpp
+    ├── test_http_fetcher.cpp
+    └── url_frontier
+        ├── test_url_frontier1.cpp
+        ├── test_url_frontier2.cpp
+        ├── test_url_frontier3.cpp
+        ├── test_url_frontier4.cpp
+        ├── test_url_frontier5.cpp
+        └── test_url_frontier6.cpp
+
+133 directories, 180 files

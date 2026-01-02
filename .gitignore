@@ -1,0 +1,39 @@
+# Build artifacts
+build/
+*.o
+*.a
+*.so
+*.dylib
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.prod
+
+# Data
+data/
+logs/
+*.log
+*.db
+
+# Docker volumes (if you mount locally)
+postgres_data/
+minio_data/
+redis_data/
+rocksdb_data/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+.env
+.env.local
+.env.production
+
+.devcontainer/*
