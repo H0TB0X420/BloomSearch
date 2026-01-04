@@ -7,7 +7,7 @@ namespace search {
 
 class ResultFormatter {
 public:
-    std::string format(SearchResponse& results);
+    std::string format(SearchResponse& results, int start_rank = 1);
 };
 
 } // namespace search

@@ -1,21 +1,25 @@
 #include "common/config.h"
 #include "common/logger.h"
-#include "crawler/http_fetcher.h"
-#include "crawler/robots_parser.h"
-#include "crawler/url_frontier_mt.h"
-#include "indexer/html_parser.h"
 #include "storage/postgres_client.h"
 #include "storage/s3_client.h"
+#include "crawler/url_frontier_mt.h"
+#include "crawler/http_fetcher.h"
+#include "crawler/robots_parser.h"
+#include "crawler/url_filter.h"
+#include "indexer/html_parser.h"
 
 #include <iostream>
 #include <fstream>
-#include <thread>
+#include <string>
 #include <vector>
+#include <thread>
 #include <atomic>
-#include <csignal>
-#include <chrono>
 #include <mutex>
-#include <functional>
+#include <chrono>
+#include <csignal>
+#include <cstdlib>
+#include <unordered_map>
+#include <unordered_set>
 
 using namespace search;
 
@@ -23,7 +27,7 @@ std::atomic<bool> g_shutdown_requested{false};
 
 void signal_handler(int signal) {
     if (signal == SIGINT || signal == SIGTERM) {
-        Logger::info("Shutdown requested (signal " + std::to_string(signal) + ")");
+        Logger::info("Shutdown requested...");
         g_shutdown_requested = true;
     }
 }
@@ -31,57 +35,94 @@ void signal_handler(int signal) {
 struct CrawlerStats {
     std::atomic<uint64_t> pages_crawled{0};
     std::atomic<uint64_t> pages_failed{0};
+    std::atomic<uint64_t> pages_filtered{0};
     std::atomic<uint64_t> bytes_downloaded{0};
     std::atomic<uint64_t> links_extracted{0};
+    std::atomic<uint64_t> links_accepted{0};
     std::chrono::steady_clock::time_point start_time;
     
     void start() {
         start_time = std::chrono::steady_clock::now();
     }
     
-    void log_progress(size_t queue_size) const {
+    void log_progress() const {
         auto elapsed = std::chrono::steady_clock::now() - start_time;
         auto seconds = std::chrono::duration_cast<std::chrono::seconds>(elapsed).count();
         
         double rate = seconds > 0 ? 
-            static_cast<double>(pages_crawled) / seconds * 60.0 : 0;
+            static_cast<double>(pages_crawled.load()) / seconds * 60.0 : 0;
         
         Logger::info("========================================");
-        Logger::info("[PROGRESS] Pages crawled: " + std::to_string(pages_crawled.load()));
-        Logger::info("[PROGRESS] Pages failed:  " + std::to_string(pages_failed.load()));
-        Logger::info("[PROGRESS] Queue size:    " + std::to_string(queue_size));
-        Logger::info("[PROGRESS] Elapsed:       " + std::to_string(seconds) + "s");
-        Logger::info("[PROGRESS] Rate:          " + std::to_string(rate) + " pages/min");
+        Logger::info("[PROGRESS] Pages crawled:  " + std::to_string(pages_crawled.load()));
+        Logger::info("[PROGRESS] Pages failed:   " + std::to_string(pages_failed.load()));
+        Logger::info("[PROGRESS] Pages filtered: " + std::to_string(pages_filtered.load()));
+        Logger::info("[PROGRESS] Bytes: " + std::to_string(bytes_downloaded.load() / 1024) + " KB");
+        Logger::info("[PROGRESS] Links found: " + std::to_string(links_extracted.load()) + 
+                     ", accepted: " + std::to_string(links_accepted.load()));
+        Logger::info("[PROGRESS] Elapsed: " + std::to_string(seconds) + "s");
+        Logger::info("[PROGRESS] Rate: " + std::to_string(rate) + " pages/min");
         Logger::info("========================================");
     }
 };
 
+// Domain limiter to prevent getting trapped in single sites
+class DomainLimiter {
+public:
+    static constexpr int MAX_PAGES_PER_DOMAIN = 50;  // Max pages from any single domain
+    
+    bool can_crawl(const std::string& domain) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return domain_counts_[domain] < MAX_PAGES_PER_DOMAIN;
+    }
+    
+    void record_crawl(const std::string& domain) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        domain_counts_[domain]++;
+    }
+    
+    int get_count(const std::string& domain) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        return domain_counts_[domain];
+    }
+    
+    void log_top_domains(int n = 10) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        std::vector<std::pair<std::string, int>> sorted;
+        for (const auto& [domain, count] : domain_counts_) {
+            sorted.emplace_back(domain, count);
+        }
+        
+        std::sort(sorted.begin(), sorted.end(),
+                  [](const auto& a, const auto& b) { return a.second > b.second; });
+        
+        Logger::info("Top " + std::to_string(n) + " domains:");
+        for (int i = 0; i < std::min(n, static_cast<int>(sorted.size())); ++i) {
+            Logger::info("  " + sorted[i].first + ": " + std::to_string(sorted[i].second));
+        }
+    }
+
+private:
+    std::unordered_map<std::string, int> domain_counts_;
+    std::mutex mutex_;
+};
+
+// Thread-safe robots.txt cache
 class RobotsCache {
 public:
     bool is_allowed(const std::string& url, const std::string& domain, HTTPFetcher& fetcher) {
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            auto it = cache_.find(domain);
-            if (it != cache_.end()) {
-                return it->second.is_allowed(url);
+        std::lock_guard<std::mutex> lock(mutex_);
+        
+        if (cache_.find(domain) == cache_.end()) {
+            cache_[domain] = RobotsParser();
+            std::string robots_url = "https://" + domain + "/robots.txt";
+            std::string robots_content;
+            if (fetcher.fetch(robots_url, robots_content)) {
+                cache_[domain].parse(robots_content);
             }
         }
         
-        std::string robots_url = "https://" + domain + "/robots.txt";
-        std::string robots_content;
-        bool success = fetcher.fetch(robots_url, robots_content);
-        
-        RobotsParser parser;
-        if (success && !robots_content.empty()) {
-            parser.parse(robots_content);
-        }
-        // If fetch fails, assume allowed (be permissive)
-        
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            cache_[domain] = std::move(parser);
-            return cache_[domain].is_allowed(url);
-        }
+        return cache_[domain].is_allowed(url, "BloomSearchBot");
     }
     
     std::chrono::milliseconds get_crawl_delay(const std::string& domain) {
@@ -105,11 +146,11 @@ void crawler_worker(
     int worker_id,
     URLFrontierMT& frontier,
     RobotsCache& robots_cache,
+    DomainLimiter& domain_limiter,
     PostgresClient& db,
     S3Client& s3,
     CrawlerStats& stats
 ) {
-    // Each worker has its own fetcher and parser (thread-local)
     HTTPFetcher fetcher;
     HTMLParser parser;
     
@@ -124,13 +165,28 @@ void crawler_worker(
         std::string url = *url_opt;
         std::string domain = URLFrontierMT::extract_domain(url);
         
+        // Check URL filter
+        if (!URLFilter::is_acceptable(url)) {
+            stats.pages_filtered++;
+            continue;
+        }
+        
+        // Check domain limit
+        if (!domain_limiter.can_crawl(domain)) {
+            stats.pages_filtered++;
+            continue;
+        }
+        
+        // Check robots.txt
         if (!robots_cache.is_allowed(url, domain, fetcher)) {
+            stats.pages_filtered++;
             continue;
         }
         
         auto crawl_delay = robots_cache.get_crawl_delay(domain);
         frontier.set_domain_delay(domain, crawl_delay);
         
+        // Fetch the page
         std::string content;
         bool fetch_success = fetcher.fetch(url, content);
         
@@ -142,8 +198,10 @@ void crawler_worker(
             continue;
         }
         
+        // Parse HTML
         auto doc = parser.parse(content, url);
         
+        // Store content in S3
         std::string content_hash = std::to_string(std::hash<std::string>{}(content));
         
         if (!s3.put(content_hash, content)) {
@@ -152,24 +210,34 @@ void crawler_worker(
             continue;
         }
         
+        // Store metadata in DB
         if (!db.mark_crawled(url, 200, content_hash, content.size())) {
             Logger::info("[Worker " + std::to_string(worker_id) + "] DB update failed: " + url);
             stats.pages_failed++;
             continue;
         }
         
+        // Record domain crawl
+        domain_limiter.record_crawl(domain);
+        
+        // Extract and filter links
         std::vector<std::string> new_urls;
         for (const auto& link : doc.links) {
-            if (!link.url.empty() && 
-                (link.url.find("http://") == 0 || link.url.find("https://") == 0)) {
+            if (link.url.empty()) continue;
+            if (link.url.find("http://") != 0 && link.url.find("https://") != 0) continue;
+            
+            // Apply URL filter to outgoing links too
+            if (URLFilter::is_acceptable(link.url)) {
                 new_urls.push_back(link.url);
+                stats.links_accepted++;
             }
         }
+        
+        stats.links_extracted += doc.links.size();
         frontier.add_batch(new_urls, 0);
         
         stats.pages_crawled++;
         stats.bytes_downloaded += content.size();
-        stats.links_extracted += doc.links.size();
     }
     
     Logger::info("[Worker " + std::to_string(worker_id) + "] Stopped");
@@ -232,13 +300,12 @@ int main(int argc, char** argv) {
     
     std::cout << "\n";
     std::cout << "============================================================\n";
-    std::cout << "    Bloom Search - Multithreaded Crawler                    \n";
+    std::cout << "    Bloom Search - Multi-threaded Crawler                   \n";
     std::cout << "============================================================\n\n";
     
     try {
-        Logger::info("Starting Bloom Search Crawler (MT)");
-        Logger::info("Threads: " + std::to_string(num_threads));
-        Logger::info("Default delay: " + std::to_string(default_delay_ms) + "ms");
+        Logger::info("Starting Bloom Search Crawler");
+        Logger::info("Version 1.0.0");
         
         if (test_mode) {
             Logger::info("Running in test mode");
@@ -271,6 +338,7 @@ int main(int argc, char** argv) {
             return 0;
         }
         
+        // Load seeds from file
         if (!seeds_file.empty()) {
             std::ifstream file(seeds_file);
             if (file.is_open()) {
@@ -292,18 +360,43 @@ int main(int argc, char** argv) {
             }
         }
         
+        // Default diverse seed list
         if (seed_urls.empty()) {
             seed_urls = {
+                // General knowledge
                 "https://www.wikipedia.org/",
+                "https://www.britannica.com/",
+                
+                // Tech news & blogs
                 "https://news.ycombinator.com/",
-                "https://example.com/"
+                "https://www.wired.com/",
+                "https://arstechnica.com/",
+                "https://www.theverge.com/",
+                
+                // Programming
+                "https://stackoverflow.com/",
+                "https://dev.to/",
+                "https://www.freecodecamp.org/",
+                
+                // News
+                "https://www.reuters.com/",
+                "https://www.bbc.com/news",
+                "https://www.npr.org/",
+                
+                // Science
+                "https://www.nature.com/",
+                "https://www.sciencedaily.com/",
+                
+                // Reference
+                "https://www.merriam-webster.com/",
+                "https://www.investopedia.com/"
             };
         }
         
         Logger::info("Seed URLs: " + std::to_string(seed_urls.size()));
         Logger::info("Initializing components...");
         
-        // PostgreSQL (shared, thread-safe with connection per operation)
+        // PostgreSQL
         PostgresClient db;
         if (!db.connect()) {
             Logger::error("Failed to connect to PostgreSQL: " + db.last_error());
@@ -312,7 +405,7 @@ int main(int argc, char** argv) {
         db.initialize_schema();
         Logger::info("Connected to PostgreSQL");
         
-        // S3 (shared, thread-safe)
+        // S3
         S3Client s3;
         const char* s3_endpoint = std::getenv("S3_ENDPOINT");
         const char* s3_access_key = std::getenv("S3_ACCESS_KEY");
@@ -328,75 +421,90 @@ int main(int argc, char** argv) {
             Logger::error("Failed to connect to S3/MinIO: " + s3.last_error());
             return 1;
         }
-        Logger::info("Connected to S3/MinIO");
+        Logger::info("Connected to MinIO/S3");
         
         // URL Frontier (thread-safe)
         URLFrontierMT frontier;
         frontier.set_default_delay(std::chrono::milliseconds(default_delay_ms));
         
-        // Add seed URLs with high priority
-        for (const auto& url : seed_urls) {
-            frontier.add(url, 100);
+        for (const auto& seed : seed_urls) {
+            if (URLFilter::is_acceptable(seed)) {
+                frontier.add(seed, 100);  // High priority for seeds
+                Logger::info("Seed: " + seed);
+            } else {
+                Logger::info("Seed filtered: " + seed + " (" + URLFilter::rejection_reason(seed) + ")");
+            }
         }
-        Logger::info("Added " + std::to_string(seed_urls.size()) + " seed URLs");
         
+        // Shared resources
         RobotsCache robots_cache;
-        
+        DomainLimiter domain_limiter;
         CrawlerStats stats;
         stats.start();
         
-        Logger::info("Starting " + std::to_string(num_threads) + " worker threads...");
+        Logger::info("Configuration:");
+        Logger::info("  Threads: " + std::to_string(num_threads));
+        Logger::info("  Max pages: " + (max_pages > 0 ? std::to_string(max_pages) : "unlimited"));
+        Logger::info("  Default delay: " + std::to_string(default_delay_ms) + "ms");
+        Logger::info("  Max per domain: " + std::to_string(DomainLimiter::MAX_PAGES_PER_DOMAIN));
+        Logger::info("  Max URL length: " + std::to_string(URLFilter::MAX_URL_LENGTH));
         
+        // Start worker threads
         std::vector<std::thread> workers;
         for (int i = 0; i < num_threads; ++i) {
-            workers.emplace_back(crawler_worker, 
-                                 i, 
-                                 std::ref(frontier),
-                                 std::ref(robots_cache),
-                                 std::ref(db),
-                                 std::ref(s3),
-                                 std::ref(stats));
+            workers.emplace_back(
+                crawler_worker,
+                i,
+                std::ref(frontier),
+                std::ref(robots_cache),
+                std::ref(domain_limiter),
+                std::ref(db),
+                std::ref(s3),
+                std::ref(stats)
+            );
         }
         
-        Logger::info("Crawler running. Press Ctrl+C to stop.");
+        Logger::info("Started " + std::to_string(num_threads) + " worker threads");
         
-        auto last_progress = std::chrono::steady_clock::now();
-        
+        // Monitor progress
+        int progress_interval = 30;  // seconds
         while (!g_shutdown_requested) {
-            std::this_thread::sleep_for(std::chrono::seconds(1));            
-            if (max_pages > 0 && stats.pages_crawled >= static_cast<uint64_t>(max_pages)) {
+            std::this_thread::sleep_for(std::chrono::seconds(progress_interval));
+            
+            if (g_shutdown_requested) break;
+            
+            stats.log_progress();
+            
+            // Check max pages
+            if (max_pages > 0 && stats.pages_crawled.load() >= static_cast<uint64_t>(max_pages)) {
                 Logger::info("Reached max pages limit (" + std::to_string(max_pages) + ")");
+                frontier.shutdown();
                 break;
             }
             
-            auto now = std::chrono::steady_clock::now();
-            if (std::chrono::duration_cast<std::chrono::seconds>(now - last_progress).count() >= 10) {
-                stats.log_progress(frontier.size());
-                last_progress = now;
-            }
-            
-            if (frontier.empty() && stats.pages_crawled > 0) {
-                std::this_thread::sleep_for(std::chrono::seconds(2));
-                if (frontier.empty()) {
-                    Logger::info("Queue empty, stopping...");
-                    break;
-                }
+            // Check if frontier is empty
+            if (frontier.empty() && stats.pages_crawled.load() > 0) {
+                Logger::info("Frontier empty, shutting down...");
+                frontier.shutdown();
+                break;
             }
         }
         
-        Logger::info("Shutting down...");
+        // Signal shutdown
         frontier.shutdown();
         
+        // Wait for workers
+        Logger::info("Waiting for workers to finish...");
         for (auto& worker : workers) {
             if (worker.joinable()) {
                 worker.join();
             }
-        }        
-        stats.log_progress(frontier.size());
+        }
         
+        // Final stats
         Logger::info("Crawler stopped");
-        Logger::info("Total pages crawled: " + std::to_string(stats.pages_crawled.load()));
-        Logger::info("Total bytes: " + std::to_string(stats.bytes_downloaded.load() / 1024) + " KB");
+        stats.log_progress();
+        domain_limiter.log_top_domains();
         
     } catch (const std::exception& e) {
         Logger::error("Fatal error: " + std::string(e.what()));

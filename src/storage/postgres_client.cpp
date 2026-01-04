@@ -257,15 +257,41 @@ bool PostgresClient::mark_crawled(const std::string& url, int status_code,
     try {
         pqxx::work txn(*conn_);
         
+        std::string url_hash = compute_hash(url);
+        
+        // Extract domain from URL
+        std::string domain;
+        size_t scheme_end = url.find("://");
+        if (scheme_end != std::string::npos) {
+            size_t host_start = scheme_end + 3;
+            size_t host_end = url.find('/', host_start);
+            if (host_end == std::string::npos) {
+                domain = url.substr(host_start);
+            } else {
+                domain = url.substr(host_start, host_end - host_start);
+            }
+            // Remove www. prefix
+            if (domain.substr(0, 4) == "www.") {
+                domain = domain.substr(4);
+            }
+        }
+        
+        // Upsert: INSERT if not exists, UPDATE if exists
         txn.exec_params(R"(
-            UPDATE pages SET 
+            INSERT INTO pages (url, url_hash, domain, crawled_at, status_code, content_hash, content_size, indexed)
+            VALUES ($1, $2, $3, NOW(), $4, $5, $6, FALSE)
+            ON CONFLICT (url) DO UPDATE SET
                 crawled_at = NOW(),
-                status_code = $2,
-                content_hash = $3,
-                content_size = $4
-            WHERE url = $1
+                status_code = EXCLUDED.status_code,
+                content_hash = EXCLUDED.content_hash,
+                content_size = EXCLUDED.content_size
         )",
-            url, status_code, content_hash, content_size
+            url,
+            url_hash,
+            domain,
+            status_code,
+            content_hash,
+            content_size
         );
         
         txn.commit();

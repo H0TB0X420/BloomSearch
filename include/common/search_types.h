@@ -74,8 +74,10 @@ struct DocumentInfo {
     std::string title;
     std::string snippet;           // Text excerpt for display
     uint32_t doc_length = 0;       // Number of tokens in document
+    int64_t published_at = 0;      // Original publish date (0 = unknown)
+    int64_t modified_at = 0;       // Last modified date (0 = unknown)
     float ai_score = 0.0f;         // 0.0 = human, 1.0 = AI
-    Era era = Era::UNKNOWN;        // PRE_AI, TRANSITION, AI_ERA, UNKNOWN
+    Era era = Era::UNKNOWN;        // PRE_AI, POST_AI, UNKNOWN
     std::string domain;            // Extracted domain for site: filter
 };
 

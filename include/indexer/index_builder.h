@@ -7,6 +7,7 @@
 #include <memory>
 #include <cstdint>
 #include <optional>
+#include <sstream>
 
 #include "common/search_types.h"
 
@@ -16,20 +17,57 @@ class RocksDBClient;
 class HTMLParser;
 class Tokenizer;
 
-
 struct IndexedDocument {
-    uint64_t doc_id;
+    uint64_t doc_id = 0;
     std::string url;
     std::string title;
-    std::string snippet;                // First ~200 chars for search results
-    uint32_t word_count;
-    uint64_t indexed_at;                // Unix timestamp
-    float ai_score;                     // From AI detector (Week 3)
-    std::string era;                    // "pre-ai", "transition", "ai-era"
+    std::string snippet;
+    uint32_t word_count = 0;
+    uint64_t indexed_at = 0;
+    int64_t published_at = 0;       // Original publish date (0 = unknown)
+    int64_t modified_at = 0;        // Last modified date (0 = unknown)
+    float ai_score = 0.0f;
+    std::string era;                // "pre-ai", "post-ai", "unknown"
     
-    // Serialization
-    std::string serialize() const;
-    static IndexedDocument deserialize(const std::string& data);
+    // Format: url\ttitle\tsnippet\tword_count\tindexed_at\tpublished_at\tmodified_at\tai_score\tera
+    std::string serialize() const {
+        std::ostringstream oss;
+        oss << url << "\t" << title << "\t" << snippet << "\t"
+            << word_count << "\t" << indexed_at << "\t"
+            << published_at << "\t" << modified_at << "\t"
+            << ai_score << "\t" << era;
+        return oss.str();
+    }
+    
+    static IndexedDocument deserialize(const std::string& data) {
+        IndexedDocument doc;
+        std::istringstream iss(data);
+        std::string token;
+        
+        std::getline(iss, doc.url, '\t');
+        std::getline(iss, doc.title, '\t');
+        std::getline(iss, doc.snippet, '\t');
+        
+        std::getline(iss, token, '\t');
+        doc.word_count = token.empty() ? 0 : std::stoul(token);
+        
+        std::getline(iss, token, '\t');
+        doc.indexed_at = token.empty() ? 0 : std::stoull(token);
+        
+        std::getline(iss, token, '\t');
+        doc.published_at = token.empty() ? 0 : std::stoll(token);
+        
+        std::getline(iss, token, '\t');
+        doc.modified_at = token.empty() ? 0 : std::stoll(token);
+        
+        std::getline(iss, token, '\t');
+        doc.ai_score = token.empty() ? 0.0f : std::stof(token);
+        
+        std::getline(iss, doc.era, '\t');
+        if (doc.era.empty()) doc.era = "unknown";
+        
+        return doc;
+    }
 };
 
 class IndexBuilder {
@@ -38,9 +76,7 @@ public:
     ~IndexBuilder();
     
     bool initialize(const std::string& db_path);
-    
     bool initialize(RocksDBClient* db);
-    
     bool is_initialized() const { return db_ != nullptr; }
     
     bool index_document(uint64_t doc_id,
@@ -53,7 +89,10 @@ public:
                      const std::string& body,
                      const std::string& meta_description = "",
                      const std::vector<std::string>& h1_tags = {},
-                     const std::vector<std::string>& h2_tags = {});
+                     const std::vector<std::string>& h2_tags = {},
+                     int64_t published_at = 0,
+                     int64_t modified_at = 0,
+                     const std::string& era = "unknown");
     
     bool flush();
     
@@ -66,9 +105,7 @@ public:
     uint32_t get_document_frequency(const std::string& term);
     
     bool remove_document(uint64_t doc_id);
-    
     bool is_indexed(uint64_t doc_id);
-    
     std::optional<IndexedDocument> get_document(uint64_t doc_id);
     
     const std::string& last_error() const { return last_error_; }
@@ -80,7 +117,6 @@ private:
     std::unique_ptr<HTMLParser> parser_;
     std::unique_ptr<Tokenizer> tokenizer_;
     
-    // In-memory buffer for batch writes
     std::unordered_map<std::string, PostingList> pending_postings_;
     std::vector<IndexedDocument> pending_docs_metadata_;
     std::unordered_map<uint64_t, std::vector<std::string>> pending_doc_terms_;

@@ -3,6 +3,7 @@
 #include "indexer/tokenizer.h"
 #include "storage/rocksdb/rocksdb_client.h"
 #include "common/search_types.h"
+#include "common/date_utils.h"
 #include <sstream>
 #include <chrono>
 #include <algorithm>
@@ -39,7 +40,7 @@ Posting Posting::deserialize(const std::string& data) {
     p.field = static_cast<Field>(std::stoi(token));
     
     std::getline(iss, token, '|');
-    p.frequency = static_cast<uint16_t>(std::stoi(token));
+    p.frequency = static_cast<uint32_t>(std::stoi(token));
     
     std::getline(iss, token, '|');
     if (!token.empty()) {
@@ -47,7 +48,7 @@ Posting Posting::deserialize(const std::string& data) {
         std::string pos;
         while (std::getline(pos_stream, pos, ',')) {
             if (!pos.empty()) {
-                p.positions.push_back(static_cast<uint16_t>(std::stoi(pos)));
+                p.positions.push_back(static_cast<uint32_t>(std::stoi(pos)));
             }
         }
     }
@@ -76,11 +77,9 @@ PostingList PostingList::deserialize(const std::string& data) {
     std::istringstream iss(data);
     std::string token;
     
-    // doc_frequency
     std::getline(iss, token, ';');
     pl.doc_frequency = std::stoul(token);
     
-    // postings
     while (std::getline(iss, token, ';')) {
         if (!token.empty()) {
             pl.postings.push_back(Posting::deserialize(token));
@@ -91,7 +90,6 @@ PostingList PostingList::deserialize(const std::string& data) {
 }
 
 void PostingList::add_posting(const Posting& posting) {
-    
     for (auto& existing : postings) {
         if (existing.doc_id == posting.doc_id && existing.field == posting.field) {
             existing.frequency += posting.frequency;
@@ -120,40 +118,8 @@ void PostingList::remove_document(uint64_t doc_id) {
 }
 
 //=============================================================================
-// IndexedDocument Serialization
-// Format: url\ttitle\tsnippet\tword_count\tindexed_at\tai_score\tera
+// IndexBuilder
 //=============================================================================
-std::string IndexedDocument::serialize() const {
-    std::ostringstream oss;
-    oss << url << "\t" << title << "\t" << snippet << "\t"
-        << word_count << "\t" << indexed_at << "\t"
-        << ai_score << "\t" << era;
-    return oss.str();
-}
-
-IndexedDocument IndexedDocument::deserialize(const std::string& data) {
-    IndexedDocument doc;
-    
-    std::istringstream iss(data);
-    std::string token;
-    
-    std::getline(iss, doc.url, '\t');
-    std::getline(iss, doc.title, '\t');
-    std::getline(iss, doc.snippet, '\t');
-    
-    std::getline(iss, token, '\t');
-    doc.word_count = token.empty() ? 0 : std::stoul(token);
-    
-    std::getline(iss, token, '\t');
-    doc.indexed_at = token.empty() ? 0 : std::stoull(token);
-    
-    std::getline(iss, token, '\t');
-    doc.ai_score = token.empty() ? 0.0f : std::stof(token);
-    
-    std::getline(iss, doc.era, '\t');
-    
-    return doc;
-}
 
 IndexBuilder::IndexBuilder()
     : parser_(std::make_unique<HTMLParser>())
@@ -206,13 +172,35 @@ bool IndexBuilder::index_document(uint64_t doc_id,
         return false;
     }
     
+    // Parse HTML
     auto parsed = parser_->parse(html_content, url);
+    
+    // Extract dates from meta tags
+    int64_t published_at = 0;
+    int64_t modified_at = 0;
+    
+    if (parsed.published_date.has_value()) {
+        published_at = DateUtils::parse_date(parsed.published_date.value());
+    }
+    if (parsed.modified_date.has_value()) {
+        modified_at = DateUtils::parse_date(parsed.modified_date.value());
+    }
+    
+    // Fallback: extract date from URL pattern
+    if (published_at == 0) {
+        published_at = DateUtils::extract_date_from_url(url);
+    }
+    
+    // Determine era from best available date
+    int64_t era_date = published_at > 0 ? published_at : modified_at;
+    std::string era = DateUtils::era_string(era_date);
     
     std::vector<std::string> h1_tags;
     std::vector<std::string> h2_tags;
     
     return index_parsed(doc_id, url, parsed.title, parsed.text_content,
-                       parsed.description, h1_tags, h2_tags);
+                       parsed.description, h1_tags, h2_tags,
+                       published_at, modified_at, era);
 }
 
 bool IndexBuilder::index_parsed(uint64_t doc_id,
@@ -221,7 +209,10 @@ bool IndexBuilder::index_parsed(uint64_t doc_id,
                                const std::string& body,
                                const std::string& meta_description,
                                const std::vector<std::string>& h1_tags,
-                               const std::vector<std::string>& h2_tags) {
+                               const std::vector<std::string>& h2_tags,
+                               int64_t published_at,
+                               int64_t modified_at,
+                               const std::string& era) {
     if (!db_) {
         last_error_ = "Not initialized";
         return false;
@@ -252,11 +243,12 @@ bool IndexBuilder::index_parsed(uint64_t doc_id,
     doc_meta.url = url;
     doc_meta.title = title;
     doc_meta.snippet = generate_snippet(body);
-    doc_meta.word_count = static_cast<uint32_t>(tokenizer_->tokenize_simple(body).size());
-    doc_meta.indexed_at = std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
-    doc_meta.ai_score = 0.0f;  // Set later by AI detector
-    doc_meta.era = "";         // Set later by AI detector
+    doc_meta.word_count = static_cast<uint32_t>(doc_terms.size());
+    doc_meta.indexed_at = static_cast<uint64_t>(std::time(nullptr));
+    doc_meta.published_at = published_at;
+    doc_meta.modified_at = modified_at;
+    doc_meta.ai_score = 0.0f;
+    doc_meta.era = era;
     
     pending_docs_metadata_.push_back(doc_meta);
     pending_docs_++;
@@ -268,7 +260,7 @@ bool IndexBuilder::index_parsed(uint64_t doc_id,
     return true;
 }
 
-void IndexBuilder::tokenize_field(const std::string& text, Field field, 
+void IndexBuilder::tokenize_field(const std::string& text, Field field,
                                   uint64_t doc_id, std::vector<std::string>& terms_out) {
     if (text.empty()) return;
     
@@ -281,7 +273,7 @@ void IndexBuilder::tokenize_field(const std::string& text, Field field,
         posting.doc_id = doc_id;
         posting.field = field;
         posting.frequency++;
-        posting.positions.push_back(static_cast<uint16_t>(token.position));
+        posting.positions.push_back(static_cast<uint32_t>(token.position));
     }
     
     for (auto& [term, posting] : term_postings) {
@@ -325,7 +317,7 @@ bool IndexBuilder::flush() {
     db_->begin_batch();
     
     for (auto& [term, pending_pl] : pending_postings_) {
-        std::string key = term_key(term);        
+        std::string key = term_key(term);
         auto existing = db_->get(key);
         if (existing) {
             PostingList existing_pl = PostingList::deserialize(*existing);
@@ -338,7 +330,6 @@ bool IndexBuilder::flush() {
             }
             existing_pl.doc_frequency = static_cast<uint32_t>(unique_docs.size());
             db_->batch_put(key, existing_pl.serialize());
-            
             db_->batch_put(df_key(term), std::to_string(existing_pl.doc_frequency));
         } else {
             std::unordered_set<uint64_t> unique_docs;
@@ -369,7 +360,7 @@ bool IndexBuilder::flush() {
     bool success = db_->commit_batch();
     
     if (success) {
-        save_statistics();        
+        save_statistics();
         pending_postings_.clear();
         pending_docs_metadata_.clear();
         pending_doc_terms_.clear();

@@ -1,10 +1,13 @@
 #include "storage/rocksdb/rocksdb_index_reader.h"
-#include "common/search_types.h" 
 #include "indexer/index_builder.h"
 #include <algorithm>
 #include <cctype>
 
 namespace search {
+
+//=============================================================================
+// Constructor / Destructor
+//=============================================================================
 
 RocksDBIndexReader::RocksDBIndexReader() = default;
 
@@ -12,32 +15,42 @@ RocksDBIndexReader::~RocksDBIndexReader() {
     close();
 }
 
+//=============================================================================
+// Open / Close
+//=============================================================================
+
 bool RocksDBIndexReader::open(const std::string& db_path) {
-    close();
-    
-    auto client = new RocksDBClient();
-    if (!client->open(db_path, false)) {
-        last_error_ = "Failed to open RocksDB: " + client->last_error();
-        delete client;
-        return false;
+    if (db_) {
+        close();
     }
     
-    db_ = client;
+    db_ = new RocksDBClient();
     owns_db_ = true;
-    stats_loaded_ = false;
+    
+    if (!db_->open(db_path)) {
+        last_error_ = "Failed to open RocksDB: " + db_->last_error();
+        delete db_;
+        db_ = nullptr;
+        owns_db_ = false;
+        return false;
+    }
     
     return true;
 }
 
-void RocksDBIndexReader::set_client(RocksDBClient* client) {
-    close();
-    db_ = client;
+bool RocksDBIndexReader::open(RocksDBClient* db) {
+    if (!db || !db->is_open()) {
+        last_error_ = "Invalid or closed database";
+        return false;
+    }
+    
+    if (db_) {
+        close();
+    }
+    
+    db_ = db;
     owns_db_ = false;
-    stats_loaded_ = false;
-}
-
-bool RocksDBIndexReader::is_open() const {
-    return db_ != nullptr && db_->is_open();
+    return true;
 }
 
 void RocksDBIndexReader::close() {
@@ -50,10 +63,15 @@ void RocksDBIndexReader::close() {
     stats_loaded_ = false;
 }
 
+//=============================================================================
+// Statistics Loading
+//=============================================================================
+
 void RocksDBIndexReader::load_stats() const {
     if (stats_loaded_ || !db_) return;
     
-    auto count_str = db_->get("stats:doc_count");
+    // Load document count - IndexBuilder uses "meta:doc_count"
+    auto count_str = db_->get("meta:doc_count");
     if (count_str) {
         try {
             cached_doc_count_ = std::stoull(*count_str);
@@ -62,25 +80,44 @@ void RocksDBIndexReader::load_stats() const {
         }
     }
     
-    auto avg_str = db_->get("stats:avg_doc_length");
-    if (avg_str) {
-        try {
-            cached_avg_length_ = std::stof(*avg_str);
-        } catch (...) {
-            cached_avg_length_ = 100.0f;
+    // Fallback: count from data
+    if (cached_doc_count_ == 0) {
+        cached_doc_count_ = db_->count_prefix("doc:");
+    }
+    
+    // Calculate average document length by sampling
+    if (cached_doc_count_ > 0) {
+        uint64_t total_length = 0;
+        uint64_t sampled = 0;
+        const uint64_t max_sample = 100;
+        
+        db_->iterate_prefix("doc:", [&]([[maybe_unused]] const std::string& key, const std::string& value) {
+            if (sampled >= max_sample) return false;
+            
+            IndexedDocument doc = IndexedDocument::deserialize(value);
+            total_length += doc.word_count;
+            sampled++;
+            return true;
+        });
+        
+        if (sampled > 0) {
+            cached_avg_length_ = static_cast<float>(total_length) / static_cast<float>(sampled);
         }
     }
     
-    if (cached_doc_count_ == 0) {
-        cached_doc_count_ = db_->count_prefix("doc:");
+    if (cached_avg_length_ <= 0.0f) {
+        cached_avg_length_ = 100.0f;
     }
     
     stats_loaded_ = true;
 }
 
+//=============================================================================
+// IndexReader Interface Implementation
+//=============================================================================
+
 std::vector<Posting> RocksDBIndexReader::get_postings(const std::string& term) const {
     std::vector<Posting> result;
-    
     if (!db_) return result;
     
     auto data = db_->get(term_key(term));
@@ -88,32 +125,27 @@ std::vector<Posting> RocksDBIndexReader::get_postings(const std::string& term) c
     
     PostingList pl = PostingList::deserialize(*data);
     
-    std::unordered_map<uint64_t, Posting> doc_postings;
+    // Aggregate postings by doc_id (combine across fields)
+    std::unordered_map<uint64_t, Posting> aggregated;
     
-    for (const auto& stored_posting : pl.postings) {
-        auto& out = doc_postings[stored_posting.doc_id];
-        
-        if (out.doc_id == 0) {
-            out.doc_id = stored_posting.doc_id;
-            out.frequency = stored_posting.frequency;
-            for (uint16_t pos : stored_posting.positions) {
-                out.positions.push_back(static_cast<uint32_t>(pos));
-            }
+    for (const auto& posting : pl.postings) {
+        auto& agg = aggregated[posting.doc_id];
+        if (agg.doc_id == 0) {
+            agg.doc_id = posting.doc_id;
+            agg.field = posting.field;
+            agg.frequency = posting.frequency;
+            agg.positions = std::vector<uint32_t>(posting.positions.begin(), posting.positions.end());
         } else {
-            out.frequency += stored_posting.frequency;
-            for (uint16_t pos : stored_posting.positions) {
-                out.positions.push_back(static_cast<uint32_t>(pos));
+            agg.frequency += posting.frequency;
+            for (auto pos : posting.positions) {
+                agg.positions.push_back(pos);
             }
         }
     }
     
-    for (auto& [doc_id, posting] : doc_postings) {
+    for (auto& [doc_id, posting] : aggregated) {
         std::sort(posting.positions.begin(), posting.positions.end());
-    }
-    
-    result.reserve(doc_postings.size());
-    for (auto& [doc_id, posting] : doc_postings) {
-        result.push_back(std::move(posting));
+        result.push_back(posting);
     }
     
     return result;
@@ -133,6 +165,8 @@ std::optional<DocumentInfo> RocksDBIndexReader::get_document(uint64_t doc_id) co
     info.title = stored.title;
     info.snippet = stored.snippet;
     info.doc_length = stored.word_count;
+    info.published_at = stored.published_at;
+    info.modified_at = stored.modified_at;
     info.ai_score = stored.ai_score;
     info.era = string_to_era(stored.era);
     info.domain = extract_domain(stored.url);
@@ -143,14 +177,15 @@ std::optional<DocumentInfo> RocksDBIndexReader::get_document(uint64_t doc_id) co
 uint32_t RocksDBIndexReader::get_doc_frequency(const std::string& term) const {
     if (!db_) return 0;
     
-    auto data = db_->get(df_key(term));
-    if (!data) return 0;
-    
-    try {
-        return static_cast<uint32_t>(std::stoul(*data));
-    } catch (...) {
-        return 0;
+    auto df_str = db_->get(df_key(term));
+    if (df_str) {
+        try {
+            return static_cast<uint32_t>(std::stoul(*df_str));
+        } catch (...) {
+            return 0;
+        }
     }
+    return 0;
 }
 
 uint64_t RocksDBIndexReader::get_total_docs() const {
@@ -163,6 +198,10 @@ float RocksDBIndexReader::get_avg_doc_length() const {
     return cached_avg_length_;
 }
 
+//=============================================================================
+// Helper Methods
+//=============================================================================
+
 Era RocksDBIndexReader::string_to_era(const std::string& era_str) {
     std::string lower;
     lower.reserve(era_str.size());
@@ -172,9 +211,8 @@ Era RocksDBIndexReader::string_to_era(const std::string& era_str) {
     
     if (lower == "pre-ai" || lower == "pre_ai" || lower == "preai") {
         return Era::PRE_AI;
-    } else if (lower == "transition" || lower == "trans") {
-        return Era::TRANSITION;
-    } else if (lower == "ai-era" || lower == "ai_era" || lower == "aiera") {
+    } else if (lower == "post-ai" || lower == "post_ai" || lower == "postai" ||
+               lower == "ai-era" || lower == "ai_era" || lower == "aiera") {
         return Era::AI_ERA;
     }
     
@@ -182,20 +220,19 @@ Era RocksDBIndexReader::string_to_era(const std::string& era_str) {
 }
 
 std::string RocksDBIndexReader::extract_domain(const std::string& url) {
-    auto scheme_end = url.find("://");
-    if (scheme_end == std::string::npos) {
-        return "";
+    size_t start = url.find("://");
+    if (start == std::string::npos) return "";
+    start += 3;
+    
+    size_t end = url.find('/', start);
+    std::string domain;
+    if (end == std::string::npos) {
+        domain = url.substr(start);
+    } else {
+        domain = url.substr(start, end - start);
     }
     
-    size_t domain_start = scheme_end + 3;
-    
-    size_t domain_end = url.find('/', domain_start);
-    if (domain_end == std::string::npos) {
-        domain_end = url.length();
-    }
-    
-    std::string domain = url.substr(domain_start, domain_end - domain_start);
-    
+    // Remove www. prefix
     if (domain.substr(0, 4) == "www.") {
         domain = domain.substr(4);
     }

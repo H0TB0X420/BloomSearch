@@ -52,8 +52,8 @@ include_directories(
 add_library(common STATIC
     src/common/config.cpp
     src/common/logger.cpp
-    src/common/utils.cpp
     src/common/text_processor.cpp
+    src/common/search_types.cpp
 )
 target_link_libraries(common
     ${Boost_LIBRARIES}
@@ -69,6 +69,7 @@ add_library(storage STATIC
 )
 target_link_libraries(storage
     common
+    indexer_lib
     ${PostgreSQL_LIBRARIES}
     PkgConfig::PQXX
     ${ROCKSDB_LIBRARIES}
@@ -323,4 +324,8 @@ if(BUILD_TESTS)
         query_lib
         common
     )
+    add_executable(test_url_filter tests/robots_parser/test_url_filter.cpp)
+    target_link_libraries(test_url_filter crawler_lib common)
+    add_executable(test_date_utils tests/common/test_date_utils.cpp)
+    target_link_libraries(test_date_utils common)
 endif()

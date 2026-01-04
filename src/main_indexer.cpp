@@ -31,6 +31,7 @@ void signal_handler(int signal) {
 struct IndexerStats {
     uint64_t pages_indexed = 0;
     uint64_t pages_failed = 0;
+    uint64_t pages_skipped = 0;
     uint64_t bytes_processed = 0;
     std::chrono::steady_clock::time_point start_time;
     
@@ -48,6 +49,7 @@ struct IndexerStats {
         Logger::info("========================================");
         Logger::info("[PROGRESS] Pages indexed: " + std::to_string(pages_indexed));
         Logger::info("[PROGRESS] Pages failed:  " + std::to_string(pages_failed));
+        Logger::info("[PROGRESS] Pages skipped: " + std::to_string(pages_skipped));
         Logger::info("[PROGRESS] Bytes processed: " + std::to_string(bytes_processed / 1024) + " KB");
         Logger::info("[PROGRESS] Elapsed: " + std::to_string(seconds) + "s");
         Logger::info("[PROGRESS] Rate: " + std::to_string(rate) + " pages/min");
@@ -200,9 +202,22 @@ int main(int argc, char** argv) {
             for (const auto& page : pending) {
                 if (g_shutdown_requested) break;
                 
+                // Skip test/invalid URLs
+                if (page.url.find("test-") != std::string::npos ||
+                    page.url.find("example.com") != std::string::npos) {
+                    Logger::info("[SKIP] " + page.url + " - test URL");
+                    db.mark_page_indexed(page.id);  // Mark so we don't retry
+                    stats.pages_skipped++;
+                    total_processed++;
+                    continue;
+                }
+                
+                // Try to fetch content from S3
                 auto html_opt = s3.get(page.content_hash);
                 if (!html_opt) {
                     Logger::info("[FAIL] " + page.url + " - S3 fetch failed: " + s3.last_error());
+                    // IMPORTANT: Mark as indexed so we don't retry forever!
+                    db.mark_page_indexed(page.id);
                     stats.pages_failed++;
                     total_processed++;
                     continue;
@@ -211,13 +226,16 @@ int main(int argc, char** argv) {
                 std::string html = *html_opt;
                 stats.bytes_processed += html.size();
                 
+                // Index the document
                 if (!index_builder.index_document(static_cast<uint64_t>(page.id), page.url, html)) {
                     Logger::info("[FAIL] " + page.url + " - Index failed: " + index_builder.last_error());
+                    db.mark_page_indexed(page.id);  // Mark to avoid retry
                     stats.pages_failed++;
                     total_processed++;
                     continue;
                 }
                 
+                // Mark as indexed in database
                 if (!db.mark_page_indexed(page.id)) {
                     Logger::info("[FAIL] " + page.url + " - DB update failed: " + db.last_error());
                     stats.pages_failed++;
@@ -227,9 +245,6 @@ int main(int argc, char** argv) {
                 
                 stats.pages_indexed++;
                 total_processed++;
-                
-                // Log individual page (debug level)
-                // Logger::info("[OK] " + page.url + " (" + std::to_string(html.size()) + " bytes)");
                 
                 if (stats.pages_indexed % progress_interval == 0 && stats.pages_indexed > 0) {
                     stats.log_progress();

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "query/ranker.h"           
-#include "common/search_types.h"   
+#include "query/ranker.h"
+#include "common/search_types.h"
 #include "storage/rocksdb/rocksdb_client.h"
 #include <memory>
 #include <string>
@@ -18,8 +18,8 @@ struct IndexedDocument;
  *   - "term:<term>"     -> PostingList (serialized)
  *   - "doc:<doc_id>"    -> IndexedDocument (serialized)  
  *   - "df:<term>"       -> document frequency (string)
- *   - "stats:doc_count" -> total document count
- *   - "stats:avg_len"   -> average document length
+ *   - "meta:doc_count"  -> total document count
+ *   - "meta:term_count" -> total term count
  */
 class RocksDBIndexReader : public IndexReader {
 public:
@@ -29,22 +29,21 @@ public:
     RocksDBIndexReader(const RocksDBIndexReader&) = delete;
     RocksDBIndexReader& operator=(const RocksDBIndexReader&) = delete;
     
+    // Open database from path
     bool open(const std::string& db_path);
     
-    void set_client(RocksDBClient* client);
+    // Use existing client (does not take ownership)
+    bool open(RocksDBClient* client);
     
-    bool is_open() const;
+    bool is_open() const { return db_ != nullptr && db_->is_open(); }
     
     void close();
     
+    // IndexReader interface
     std::vector<Posting> get_postings(const std::string& term) const override;
-    
     std::optional<DocumentInfo> get_document(uint64_t doc_id) const override;
-    
     uint32_t get_doc_frequency(const std::string& term) const override;
-    
     uint64_t get_total_docs() const override;
-    
     float get_avg_doc_length() const override;
     
     const std::string& last_error() const { return last_error_; }
@@ -68,4 +67,4 @@ private:
     static std::string extract_domain(const std::string& url);
 };
 
-} // namespace search
+} // namespace search 
