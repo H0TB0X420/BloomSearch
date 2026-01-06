@@ -27,13 +27,8 @@ public:
     static int64_t parse_date(const std::string& date_str) {
         if (date_str.empty()) return 0;
         
-        // Try ISO 8601: 2024-01-15T10:00:00Z or 2024-01-15
         if (auto ts = parse_iso8601(date_str); ts > 0) return ts;
-        
-        // Try common formats: Jan 15, 2024 / January 15, 2024
         if (auto ts = parse_text_date(date_str); ts > 0) return ts;
-        
-        // Try URL pattern: /2024/01/15/ or /2024-01-15/
         if (auto ts = parse_url_date(date_str); ts > 0) return ts;
         
         return 0;
@@ -41,10 +36,8 @@ public:
     
     /**
      * Extract date from URL path patterns
-     * e.g., /2023/05/article-title or /blog/2022-11-15-post
      */
     static int64_t extract_date_from_url(const std::string& url) {
-        // Pattern: /YYYY/MM/ or /YYYY/MM/DD/
         static const std::regex url_pattern1(R"(/(\d{4})/(\d{1,2})(?:/(\d{1,2}))?/)");
         std::smatch match;
         if (std::regex_search(url, match, url_pattern1)) {
@@ -54,7 +47,6 @@ public:
             return make_timestamp(year, month, day);
         }
         
-        // Pattern: YYYY-MM-DD in URL
         static const std::regex url_pattern2(R"((\d{4})-(\d{2})-(\d{2}))");
         if (std::regex_search(url, match, url_pattern2)) {
             int year = std::stoi(match[1]);
@@ -67,8 +59,21 @@ public:
     }
     
     /**
-     * Classify era based on timestamp
+     * Extract date from page content (body text)
      */
+    static int64_t extract_date_from_content(const std::string& content) {
+        if (content.empty()) return 0;
+        
+        std::string text = content.substr(0, std::min(content.size(), size_t(2500)));
+        
+        if (auto ts = find_published_date(text); ts > 0) return ts;
+        if (auto ts = find_labeled_date(text); ts > 0) return ts;
+        if (auto ts = find_standalone_date(text); ts > 0) return ts;
+        if (auto ts = find_copyright_year(text); ts > 0) return ts;
+        
+        return 0;
+    }
+    
     static bool is_pre_ai(int64_t timestamp) {
         return timestamp > 0 && timestamp < AI_ERA_CUTOFF;
     }
@@ -82,9 +87,6 @@ public:
         return is_pre_ai(timestamp) ? "pre-ai" : "post-ai";
     }
     
-    /**
-     * Format timestamp for display: "Jan 15, 2024"
-     */
     static std::string format_date(int64_t timestamp) {
         if (timestamp <= 0) return "";
         
@@ -105,9 +107,6 @@ public:
         return buf;
     }
     
-    /**
-     * Format with era indicator
-     */
     static std::string format_with_era(int64_t timestamp) {
         if (timestamp <= 0) return "[Date: Unknown]";
         
@@ -129,14 +128,13 @@ private:
         tm_info.tm_year = year - 1900;
         tm_info.tm_mon = month - 1;
         tm_info.tm_mday = day;
-        tm_info.tm_hour = 12;  // Noon to avoid timezone edge cases
+        tm_info.tm_hour = 12;
         
         time_t t = timegm(&tm_info);
         return static_cast<int64_t>(t);
     }
     
     static int64_t parse_iso8601(const std::string& str) {
-        // 2024-01-15T10:00:00Z or 2024-01-15T10:00:00+00:00 or 2024-01-15
         static const std::regex iso_pattern(R"((\d{4})-(\d{2})-(\d{2}))");
         std::smatch match;
         if (std::regex_search(str, match, iso_pattern)) {
@@ -149,7 +147,6 @@ private:
     }
     
     static int64_t parse_text_date(const std::string& str) {
-        // "January 15, 2024" or "Jan 15, 2024"
         static const std::regex text_pattern(
             R"((Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(\d{4}))",
             std::regex::icase
@@ -161,7 +158,6 @@ private:
             int day = std::stoi(match[2]);
             int year = std::stoi(match[3]);
             
-            // Convert month name to number
             int month = month_to_number(month_str);
             if (month > 0) {
                 return make_timestamp(year, month, day);
@@ -172,6 +168,128 @@ private:
     
     static int64_t parse_url_date(const std::string& str) {
         return extract_date_from_url(str);
+    }
+    
+    // Content extraction helpers
+    
+    static int64_t find_published_date(const std::string& text) {
+        // Try ISO format first: "Published 2021-01-15" or "Posted on 2020-03-22"
+        static const std::regex iso_pattern(
+            R"((?:published|posted|written|authored)(?:\s+on)?[:\s]+(\d{4})-(\d{1,2})-(\d{1,2}))",
+            std::regex::icase
+        );
+        
+        std::smatch match;
+        if (std::regex_search(text, match, iso_pattern)) {
+            return make_timestamp(
+                std::stoi(match[1]),
+                std::stoi(match[2]),
+                std::stoi(match[3])
+            );
+        }
+        
+        // Try text format: "Published January 15, 2021"
+        static const std::regex text_pattern(
+            R"((?:published|posted|written|authored)(?:\s+on)?[:\s]+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(\d{4}))",
+            std::regex::icase
+        );
+        
+        if (std::regex_search(text, match, text_pattern)) {
+            int month = month_to_number(match[1]);
+            return make_timestamp(
+                std::stoi(match[3]),
+                month,
+                std::stoi(match[2])
+            );
+        }
+        
+        return 0;
+    }
+    
+    static int64_t find_labeled_date(const std::string& text) {
+        // Try ISO format: "Date: 2021-01-15" or "Updated: 2020-03-22"
+        static const std::regex iso_pattern(
+            R"((?:date|updated|modified|last\s+updated|last\s+modified)[:\s]+(\d{4})-(\d{1,2})-(\d{1,2}))",
+            std::regex::icase
+        );
+        
+        std::smatch match;
+        if (std::regex_search(text, match, iso_pattern)) {
+            return make_timestamp(
+                std::stoi(match[1]),
+                std::stoi(match[2]),
+                std::stoi(match[3])
+            );
+        }
+        
+        // Try text format: "Date: January 15, 2021"
+        static const std::regex text_pattern(
+            R"((?:date|updated|modified|last\s+updated|last\s+modified)[:\s]+(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(\d{4}))",
+            std::regex::icase
+        );
+        
+        if (std::regex_search(text, match, text_pattern)) {
+            int month = month_to_number(match[1]);
+            return make_timestamp(
+                std::stoi(match[3]),
+                month,
+                std::stoi(match[2])
+            );
+        }
+        
+        return 0;
+    }
+    
+    static int64_t find_standalone_date(const std::string& text) {
+        std::string start = text.substr(0, std::min(text.size(), size_t(500)));
+        
+        // Try text format first
+        static const std::regex text_pattern(
+            R"((Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(\d{4}))",
+            std::regex::icase
+        );
+        
+        std::smatch match;
+        if (std::regex_search(start, match, text_pattern)) {
+            int month = month_to_number(match[1]);
+            int day = std::stoi(match[2]);
+            int year = std::stoi(match[3]);
+            
+            if (year >= 1995 && year <= 2030) {
+                return make_timestamp(year, month, day);
+            }
+        }
+        
+        // Try ISO format
+        static const std::regex iso_pattern(R"((\d{4})-(\d{2})-(\d{2}))");
+        if (std::regex_search(start, match, iso_pattern)) {
+            int year = std::stoi(match[1]);
+            int month = std::stoi(match[2]);
+            int day = std::stoi(match[3]);
+            
+            if (year >= 1995 && year <= 2030) {
+                return make_timestamp(year, month, day);
+            }
+        }
+        
+        return 0;
+    }
+    
+    static int64_t find_copyright_year(const std::string& text) {
+        // "© 2021" or "Copyright 2021" or "(c) 2021"
+        static const std::regex pattern(
+            R"((?:©|\(c\)|copyright)\s*(\d{4}))",
+            std::regex::icase
+        );
+        
+        std::smatch match;
+        if (std::regex_search(text, match, pattern)) {
+            int year = std::stoi(match[1]);
+            if (year >= 1995 && year <= 2030) {
+                return make_timestamp(year, 7, 1);
+            }
+        }
+        return 0;
     }
     
     static int month_to_number(const std::string& month) {

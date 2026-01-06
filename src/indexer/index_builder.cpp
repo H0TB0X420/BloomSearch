@@ -190,7 +190,9 @@ bool IndexBuilder::index_document(uint64_t doc_id,
     if (published_at == 0) {
         published_at = DateUtils::extract_date_from_url(url);
     }
-    
+    if (published_at == 0) {
+        published_at = DateUtils::extract_date_from_content(parsed.text_content);
+    }
     // Determine era from best available date
     int64_t era_date = published_at > 0 ? published_at : modified_at;
     std::string era = DateUtils::era_string(era_date);
