@@ -1,6 +1,7 @@
 #include "indexer/index_builder.h"
 #include "indexer/html_parser.h"
 #include "indexer/tokenizer.h"
+#include "indexer/ai_detector.h"
 #include "storage/rocksdb/rocksdb_client.h"
 #include "common/search_types.h"
 #include "common/date_utils.h"
@@ -199,7 +200,7 @@ bool IndexBuilder::index_document(uint64_t doc_id,
     
     std::vector<std::string> h1_tags;
     std::vector<std::string> h2_tags;
-    
+
     return index_parsed(doc_id, url, parsed.title, parsed.text_content,
                        parsed.description, h1_tags, h2_tags,
                        published_at, modified_at, era);
@@ -241,6 +242,7 @@ bool IndexBuilder::index_parsed(uint64_t doc_id,
     pending_doc_terms_[doc_id] = doc_terms;
     
     IndexedDocument doc_meta;
+    AIDetector ai_detector;
     doc_meta.doc_id = doc_id;
     doc_meta.url = url;
     doc_meta.title = title;
@@ -249,7 +251,7 @@ bool IndexBuilder::index_parsed(uint64_t doc_id,
     doc_meta.indexed_at = static_cast<uint64_t>(std::time(nullptr));
     doc_meta.published_at = published_at;
     doc_meta.modified_at = modified_at;
-    doc_meta.ai_score = 0.0f;
+    doc_meta.ai_score = ai_detector.calculate_score(body);
     doc_meta.era = era;
     
     pending_docs_metadata_.push_back(doc_meta);

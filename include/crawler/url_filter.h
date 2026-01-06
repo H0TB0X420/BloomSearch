@@ -200,7 +200,7 @@ private:
             "/share?", "utm_", "fbclid=", "gclid=",
             
             // Misc low-value
-            "/search", "/tag/", "/tags/", "/archive/",
+            "/search", "/archive/",
             "/comment", "/reply", "/vote"
         };
         

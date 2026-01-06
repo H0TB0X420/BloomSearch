@@ -19,7 +19,11 @@ std::string ResultFormatter::format(SearchResponse& response, int start_rank) {
         // Rank and title
         out << rank << ". ";
         if (!doc.title.empty()) {
-            out << doc.title;
+            std::string title = doc.title;
+            if (title.length() > 60) {
+                title = title.substr(0, 57) + "...";
+            }
+            out << title;
         } else {
             out << "(No title)";
         }
@@ -27,50 +31,58 @@ std::string ResultFormatter::format(SearchResponse& response, int start_rank) {
         
         // URL (truncate if too long)
         std::string url = doc.url;
-        if (url.length() > 70) {
-            url = url.substr(0, 67) + "...";
+        if (url.length() > 65) {
+            url = url.substr(0, 62) + "...";
         }
         out << "   " << url << "\n";
         
-        // Date and era line
+        // Date/era and AI score line
         out << "   ";
+        bool is_pre_ai = false;
         if (doc.published_at > 0) {
+            is_pre_ai = DateUtils::is_pre_ai(doc.published_at);
             out << DateUtils::format_with_era(doc.published_at);
         } else {
             out << "[Date: Unknown]";
         }
         
-        // Show modified date if significantly different
-        if (doc.modified_at > 0 && doc.modified_at != doc.published_at) {
-            // Only show if modified date is at least a month after published
-            int64_t diff = doc.modified_at - doc.published_at;
-            if (diff > 30 * 24 * 60 * 60) {  // 30 days
-                out << "  Updated: " << DateUtils::format_date(doc.modified_at);
-                // Warning if crossed era boundary
-                if (doc.published_at > 0 && 
-                    DateUtils::is_pre_ai(doc.published_at) && 
-                    !DateUtils::is_pre_ai(doc.modified_at)) {
-                    out << " ⚠";
-                }
-            }
+        // Only show AI score for post-AI or unknown era content
+        if (!is_pre_ai && doc.ai_score > 0.01f) {
+            out << "  AI: " << static_cast<int>(doc.ai_score * 100) << "%";
         }
         out << "\n";
         
-        // Snippet (if available)
+        // Snippet (shorter, cleaner)
         if (!doc.snippet.empty()) {
             std::string snippet = doc.snippet;
-            // Clean up snippet - remove excessive whitespace
-            size_t pos;
-            while ((pos = snippet.find("  ")) != std::string::npos) {
-                snippet.replace(pos, 2, " ");
+            
+            // Clean up whitespace
+            for (size_t i = 0; i < snippet.size(); ++i) {
+                if (snippet[i] == '\n' || snippet[i] == '\r' || snippet[i] == '\t') {
+                    snippet[i] = ' ';
+                }
             }
-            while ((pos = snippet.find("\n")) != std::string::npos) {
-                snippet.replace(pos, 1, " ");
+            // Collapse multiple spaces
+            std::string clean;
+            bool last_space = false;
+            for (char c : snippet) {
+                if (c == ' ') {
+                    if (!last_space) {
+                        clean += c;
+                        last_space = true;
+                    }
+                } else {
+                    clean += c;
+                    last_space = false;
+                }
             }
-            // Truncate if needed
-            if (snippet.length() > 160) {
-                snippet = snippet.substr(0, 157) + "...";
+            snippet = clean;
+            
+            // Truncate to ~100 chars
+            if (snippet.length() > 100) {
+                snippet = snippet.substr(0, 97) + "...";
             }
+            
             out << "   " << snippet << "\n";
         }
         

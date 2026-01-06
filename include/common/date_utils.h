@@ -69,6 +69,7 @@ public:
         if (auto ts = find_published_date(text); ts > 0) return ts;
         if (auto ts = find_labeled_date(text); ts > 0) return ts;
         if (auto ts = find_standalone_date(text); ts > 0) return ts;
+        if (auto ts = find_month_year_at_start(text); ts > 0) return ts;
         if (auto ts = find_copyright_year(text); ts > 0) return ts;
         
         return 0;
@@ -229,7 +230,7 @@ private:
         );
         
         if (std::regex_search(text, match, text_pattern)) {
-            int month = month_to_number(match[1]);
+            int month = month_to_number(match[4]);
             return make_timestamp(
                 std::stoi(match[3]),
                 month,
@@ -243,7 +244,7 @@ private:
     static int64_t find_standalone_date(const std::string& text) {
         std::string start = text.substr(0, std::min(text.size(), size_t(500)));
         
-        // Try text format first
+        // Try text format: "January 15, 2021"
         static const std::regex text_pattern(
             R"((Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2}),?\s+(\d{4}))",
             std::regex::icase
@@ -269,6 +270,40 @@ private:
             
             if (year >= 1995 && year <= 2030) {
                 return make_timestamp(year, month, day);
+            }
+        }
+        
+        return 0;
+    }
+    
+    /**
+     * Find "Month YYYY" pattern at start of content
+     * Common in blogs: "September 2024" or "Jan 2021"
+     */
+    static int64_t find_month_year_at_start(const std::string& text) {
+        // Only check first 100 chars - this pattern is typically at very start
+        std::string start = text.substr(0, std::min(text.size(), size_t(100)));
+        
+        // Skip leading whitespace for position check
+        size_t first_char = start.find_first_not_of(" \t\n\r");
+        if (first_char == std::string::npos) return 0;
+        
+        static const std::regex pattern(
+            R"((Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{4}))",
+            std::regex::icase
+        );
+        
+        std::smatch match;
+        if (std::regex_search(start, match, pattern)) {
+            // Only accept if it's near the start (within first 20 chars of content)
+            if (match.position() <= static_cast<long>(first_char + 20)) {
+                int month = month_to_number(match[1]);
+                int year = std::stoi(match[2]);
+                
+                if (year >= 1995 && year <= 2030) {
+                    // Use 15th as middle of month
+                    return make_timestamp(year, month, 15);
+                }
             }
         }
         

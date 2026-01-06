@@ -40,34 +40,34 @@ struct IndexedDocument {
     }
     
     static IndexedDocument deserialize(const std::string& data) {
-        IndexedDocument doc;
-        std::istringstream iss(data);
-        std::string token;
-        
-        std::getline(iss, doc.url, '\t');
-        std::getline(iss, doc.title, '\t');
-        std::getline(iss, doc.snippet, '\t');
-        
-        std::getline(iss, token, '\t');
-        doc.word_count = token.empty() ? 0 : std::stoul(token);
-        
-        std::getline(iss, token, '\t');
-        doc.indexed_at = token.empty() ? 0 : std::stoull(token);
-        
-        std::getline(iss, token, '\t');
-        doc.published_at = token.empty() ? 0 : std::stoll(token);
-        
-        std::getline(iss, token, '\t');
-        doc.modified_at = token.empty() ? 0 : std::stoll(token);
-        
-        std::getline(iss, token, '\t');
-        doc.ai_score = token.empty() ? 0.0f : std::stof(token);
-        
-        std::getline(iss, doc.era, '\t');
-        if (doc.era.empty()) doc.era = "unknown";
-        
-        return doc;
-    }
+    IndexedDocument doc;
+    std::istringstream iss(data);
+    std::string token;
+    
+    std::getline(iss, doc.url, '\t');
+    std::getline(iss, doc.title, '\t');
+    std::getline(iss, doc.snippet, '\t');
+    
+    std::getline(iss, token, '\t');
+    try { doc.word_count = token.empty() ? 0 : std::stoul(token); } catch (...) { doc.word_count = 0; }
+    
+    std::getline(iss, token, '\t');
+    try { doc.indexed_at = token.empty() ? 0 : std::stoull(token); } catch (...) { doc.indexed_at = 0; }
+    
+    std::getline(iss, token, '\t');
+    try { doc.published_at = token.empty() ? 0 : std::stoll(token); } catch (...) { doc.published_at = 0; }
+    
+    std::getline(iss, token, '\t');
+    try { doc.modified_at = token.empty() ? 0 : std::stoll(token); } catch (...) { doc.modified_at = 0; }
+    
+    std::getline(iss, token, '\t');
+    try { doc.ai_score = token.empty() ? 0.0f : std::stof(token); } catch (...) { doc.ai_score = 0.0f; }
+    
+    std::getline(iss, doc.era, '\t');
+    if (doc.era.empty()) doc.era = "unknown";
+    
+    return doc;
+}
 };
 
 class IndexBuilder {

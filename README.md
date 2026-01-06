@@ -1,143 +1,317 @@
-# Bloom Search
+# 🌸 BloomSearch
 
-A production-ready command-line search engine that ranks web pages based on the likelihood of AI-generated content. Bloom Search helps users identify and filter out AI-generated spam by analyzing content characteristics and leveraging November 2022 (ChatGPT's release) as a temporal cutoff for distinguishing between pre-AI and post-AI era content.
+**A search engine that filters AI-generated content from results.**
 
-## Project Goals
+BloomSearch is a command-line search engine built in modern C++ that crawls the web, indexes content, and ranks results while distinguishing between pre-AI and post-AI era content. It uses heuristic analysis to score documents for AI likelihood, helping users find authentic human-written content.
 
-- Master C++20 modern features and best practices
-- Understand search engine architecture from first principles
-- Build a production-grade distributed system with cloud deployment
-- Develop expertise in information retrieval and ranking algorithms
-- Create a portfolio project demonstrating full-stack systems engineering
+---
 
-## Key Features
+## Features
 
-- **AI Content Detection** - Sophisticated heuristics and temporal analysis to identify AI-generated content
-- **Distributed Architecture** - Decoupled crawler, indexer, and query engine for independent scaling
-- **Production-Ready** - Containerized deployment, persistent storage, cloud-native design
-- **Modern C++20** - Leveraging concepts, ranges, coroutines, and modules
-- **Inverted Index** - Fast full-text search using RocksDB with compression
-- **Scalable Storage** - Multi-tier storage strategy with PostgreSQL, RocksDB, S3, and Redis
-- **CLI Interface** - Clean command-line search experience with ranked results
+- **Full-text search** with BM25 ranking
+- **Era classification** - Distinguishes pre-AI (before Nov 2022) vs post-AI content
+- **AI detection heuristics** - Vocabulary analysis, sentence uniformity, paragraph patterns
+- **Multi-format date extraction** - Meta tags, URL patterns, content parsing
+- **Query filters** - `era:pre-ai`, `ai:<0.3`, `site:example.com`
+- **Multithreaded crawler** - Respects robots.txt and crawl delays
+- **Compressed storage** - Zstandard compression for 67% size reduction
+
+---
 
 ## Architecture
 
 ```
-┌──────────┐      ┌──────────┐      ┌─────────────┐
-│ Crawler  │─────▶│ Indexer  │─────▶│ Query Engine│
-└──────────┘      └──────────┘      └─────────────┘
-     │                  │                    │
-     ▼                  ▼                    ▼
-┌──────────────────────────────────────────────────┐
-│  PostgreSQL  │  RocksDB  │  MinIO/S3  │  Redis  │
-└──────────────────────────────────────────────────┘
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Crawler   │────▶│   Indexer   │────▶│Query Engine │
+│  (MT, 4+)   │     │             │     │   (CLI)     │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+       │                   │                   │
+       ▼                   ▼                   ▼
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ PostgreSQL  │     │   RocksDB   │     │   Ranker    │
+│  (metadata) │     │   (index)   │     │   (BM25)    │
+└─────────────┘     └─────────────┘     └─────────────┘
+       │
+       ▼
+┌─────────────┐
+│ MinIO/S3    │
+│ (HTML+Zstd) │
+└─────────────┘
 ```
 
 ### Components
 
-- **Crawler**: Fetches web pages, respects robots.txt, stores raw HTML in S3
-- **Indexer**: Parses HTML, detects AI content, builds inverted index
-- **Query Engine**: Processes queries, ranks results, formats output
-- **Storage Layer**: PostgreSQL (metadata), RocksDB (inverted index), S3 (raw HTML), Redis (cache)
+| Component | Description |
+|-----------|-------------|
+| **Crawler** | Multithreaded web crawler with politeness policies, URL filtering, domain limits |
+| **Indexer** | HTML parsing, tokenization, stemming, inverted index construction |
+| **Query Engine** | Query parsing, BM25 ranking, result formatting, interactive CLI |
+| **AI Detector** | Heuristic scoring based on vocabulary, sentence variance, repetition patterns |
+| **Date Extractor** | Multi-source date extraction for era classification |
 
 ---
 
-## Technology Stack
+## Quick Start
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Language** | C++20 | Core implementation |
-| **Build** | CMake 3.20+, Ninja | Build system |
-| **Databases** | PostgreSQL 15, RocksDB 6.11 | Metadata & indexing |
-| **Storage** | MinIO/S3 | Object storage |
-| **Cache** | Redis 7 | Query caching |
-| **HTTP** | libcurl | Web crawling |
-| **Containerization** | Docker, Docker Compose | Development & deployment |
-| **Cloud** | DigitalOcean | Production hosting |
+### Prerequisites
 
-## Development Phases
+- Docker & Docker Compose
+- 4GB+ RAM recommended
 
-### Phase 1: Foundation (COMPLETE)
-- Architecture design & planning
-- Docker setup (multi-stage, development & production)
-- Project structure & build system (CMake)
-- Database schema (9 tables, indexes)
-- Core utilities (config, logging, URL parsing)
-- Database clients (PostgreSQL, RocksDB)
-- Component skeletons (all files compile)
-- Three working executables with basic CLI
+### 1. Start Infrastructure
 
-**Status:** Compiling codebase, working Docker environment, functional CLI
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/bloomsearch.git
+cd bloomsearch
 
-### Phase 2: Crawler Implementation
-- HTTP fetcher with libcurl (redirects, timeouts, error handling)
-- HTML parser (text extraction, link parsing, cleanup)
-- robots.txt parser (crawl-delay, disallow rules)
-- URL frontier improvements (priority queue, rate limiting, deduplication)
-- S3/MinIO integration (upload raw HTML, compression with zstd)
+# Start PostgreSQL, MinIO, and Redis
+docker-compose up -d
 
-**Deliverables:** Functional crawler that fetches and stores real web pages
+# Verify services are running
+docker-compose ps
+```
 
-### Phase 3: Indexing & AI Detection
-- Tokenizer (normalization, stop words, stemming)
-- AI detection heuristics (repetitive phrases, formal patterns, grammar perfection)
-- Inverted index builder (term frequency, position tracking, RocksDB writes)
-- Batch processing pipeline (poll database, fetch from S3, process and index)
+### 2. Build the Project
 
-**Deliverables:** Working indexer that builds searchable index with AI scores
+```bash
+# Enter the development container
+docker-compose exec app bash
 
-### Phase 4: Query Engine
-- Query parser (tokenization, boolean operators, phrase queries)
-- Ranking algorithm BM25 (TF-IDF, length normalization, AI score boost)
-- Result formatter (snippets, AI badges, term highlighting)
-- Redis caching layer (frequent queries, TTL, invalidation)
+# Build with CMake and Ninja
+cd /app/build
+cmake .. -G Ninja
+ninja
+```
 
-**Deliverables:** Functional search with ranked results and AI indicators
+### 3. Crawl Some Pages
 
-### Phase 5: Optimization & Scale
-- Performance optimization (RocksDB tuning, query optimization, batching)
-- PageRank implementation (link graph, iterative calculation)
-- Compression everywhere (HTML, index, logs)
-- Monitoring & metrics (crawl rate, index size, query latency)
-- Load testing (10,000+ documents, 100+ queries/second)
+```bash
+# Crawl with seed URL (multithreaded)
+./crawler_mt -u "https://www.paulgraham.com/articles.html" -n 50
 
-**Deliverables:** Optimized system ready for production workloads
+# Or use a seeds file
+./crawler_mt -s seeds.txt -n 100 -t 4
+```
 
-### Phase 6: Polish & Deploy
-- Production deployment (DigitalOcean droplet, managed PostgreSQL, Spaces)
-- Documentation (API docs, deployment guide, architecture diagrams)
-- Performance benchmarks and metrics
-- Demo preparation (seed URLs, search examples, screenshots)
+### 4. Build the Index
 
-**Deliverables:** Live demo, polished repository, production deployment
+```bash
+# Index all crawled pages
+./indexer -n 100
+```
 
-## Target Metrics
+### 5. Search
 
-- **Index Size:** 100,000+ web pages
-- **Query Speed:** Sub-100ms average latency
-- **AI Detection:** 80%+ accuracy on test set
-- **Crawl Rate:** 10-50 pages/second
-- **Storage:** Under 50GB for 100K pages with compression
-- **Cost:** Under $100/month on DigitalOcean
+```bash
+# Interactive mode
+./query_engine
+
+# Direct query
+./query_engine "machine learning"
+
+# With filters
+./query_engine "startup advice" era:pre-ai
+./query_engine "productivity tips" ai:<0.3
+```
+
+---
+
+## Usage Examples
+
+### Basic Search
+
+```
+$ ./query_engine startup
+
+Found 23 results (12 ms)
+────────────────────────────────────────
+
+1. How to Start a Startup
+   https://www.paulgraham.com/start.html
+   [Mar 15, 2005 · Pre-AI ✓]
+   You need three things to create a successful startup: to start with good...
+
+2. Ideas for Startups
+   https://www.paulgraham.com/ideas.html
+   [Oct 15, 2005 · Pre-AI ✓]
+   The way to get startup ideas is not to try to think of startup ideas...
+```
+
+### Filter by Era
+
+```bash
+# Only pre-AI content (before Nov 30, 2022)
+./query_engine "web development" era:pre-ai
+
+# Only post-AI content
+./query_engine "ChatGPT" era:post-ai
+```
+
+### Filter by AI Score
+
+```bash
+# Low AI likelihood (likely human-written)
+./query_engine "programming tutorial" ai:<0.3
+
+# High AI likelihood
+./query_engine "productivity" ai:>0.5
+```
+
+### Filter by Site
+
+```bash
+./query_engine "essays" site:paulgraham.com
+```
+
+### Interactive Commands
+
+```
+search> startup advice       # Search
+search> next                 # Next page
+search> prev                 # Previous page
+search> limit 5              # Results per page
+search> stats                # Index statistics
+search> help                 # Show commands
+search> quit                 # Exit
+```
+
+### CLI Options
+
+```bash
+./query_engine --help
+./query_engine -n 5 "query"      # Limit to 5 results
+./query_engine -p 2 "query"      # Page 2
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Language | C++23 (g++-12) |
+| Build | CMake + Ninja |
+| HTTP | libcurl |
+| HTML Parsing | Gumbo |
+| Metadata DB | PostgreSQL + libpqxx |
+| Index Storage | RocksDB |
+| Object Storage | MinIO (S3-compatible) |
+| Compression | Zstandard |
+| Containerization | Docker + docker-compose |
+
+---
 
 ## Project Structure
 
 ```
-bloom-search/
-├── Dockerfile                  # Multi-stage build
-├── docker-compose.yml          # Development environment
-├── docker-compose.prod.yml     # Production deployment
-├── CMakeLists.txt              # Build configuration
-├── Makefile                    # Common commands
-├── sql/init.sql                # Database schema
+bloomsearch/
+├── CMakeLists.txt
+├── docker-compose.yml
+├── Dockerfile
+├── README.md
+├── include/
+│   ├── common/
+│   │   ├── date_utils.h
+│   │   ├── logger.h
+│   │   └── search_types.h
+│   ├── crawler/
+│   │   ├── http_fetcher.h
+│   │   ├── robots_parser.h
+│   │   └── url_frontier.h
+│   ├── indexer/
+│   │   ├── ai_detector.h
+│   │   ├── html_parser.h
+│   │   ├── index_builder.h
+│   │   └── tokenizer.h
+│   ├── query/
+│   │   ├── query_parser.h
+│   │   ├── ranker.h
+│   │   └── result_formatter.h
+│   └── storage/
+│       ├── postgres_client.h
+│       ├── rocksdb/
+│       └── s3_client.h
 ├── src/
-│   ├── main_crawler.cpp        # Crawler entry point
-│   ├── main_indexer.cpp        # Indexer entry point
-│   ├── main_query.cpp          # Query engine CLI
-│   ├── common/                 # Config, logging, utils
-│   ├── storage/                # Database clients
-│   ├── crawler/                # Web crawling logic
-│   ├── indexer/                # Text processing & AI detection
-│   └── query/                  # Search and ranking
-└── include/                    # Header files (mirrors src/)
+│   ├── main_crawler.cpp
+│   ├── main_crawler_mt.cpp
+│   ├── main_indexer.cpp
+│   ├── main_query.cpp
+│   └── ... (implementations)
+└── tests/
+    └── ... (test files)
 ```
+
+---
+
+## AI Detection
+
+BloomSearch uses three heuristics to estimate AI likelihood:
+
+### 1. Vocabulary Analysis (40%)
+Detects overused AI phrases like "delve", "tapestry", "it's important to note", "in conclusion".
+
+### 2. Sentence Uniformity (35%)
+Measures variance in sentence length. AI tends toward uniform sentences; humans write with more variation.
+
+### 3. Paragraph Repetition (25%)
+Checks for formulaic paragraph starters ("Furthermore", "Additionally", "Moreover").
+
+**Score interpretation:**
+- `0-20%` - Likely human-written
+- `20-50%` - Mixed signals
+- `50%+` - Likely AI-generated
+
+---
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# PostgreSQL
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=searchengine
+POSTGRES_USER=searchuser
+POSTGRES_PASSWORD=searchpass
+
+# MinIO/S3
+S3_ENDPOINT=http://localhost:9000
+S3_ACCESS_KEY=minioadmin
+S3_SECRET_KEY=minioadmin
+S3_BUCKET=bloom-content
+
+# RocksDB
+ROCKSDB_PATH=/data/rocksdb
+```
+
+---
+
+## Performance
+
+- **Crawl rate**: ~10-20 pages/second (politeness-limited)
+- **Index size**: ~1KB per document
+- **Query latency**: <50ms typical
+- **Storage**: ~30% of raw HTML after Zstd compression
+
+---
+
+## AI Disclosure
+
+This project was developed with AI assistance using **Claude Opus 4.5**.
+
+---
+
+## License
+
+MIT License - See [LICENSE](LICENSE) for details.
+
+---
+
+## Acknowledgments
+
+- [RocksDB](https://rocksdb.org/) - Embedded key-value store
+- [Gumbo](https://github.com/google/gumbo-parser) - HTML5 parser
+- [libcurl](https://curl.se/libcurl/) - HTTP client
+- [Zstandard](https://facebook.github.io/zstd/) - Compression
