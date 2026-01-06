@@ -62,7 +62,7 @@ BloomSearch is a command-line search engine built in modern C++ that crawls the 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/bloomsearch.git
+git clone https://github.com/H0TB0X420/BloomSearch.git
 cd bloomsearch
 
 # Start PostgreSQL, MinIO, and Redis
@@ -202,48 +202,6 @@ search> quit                 # Exit
 
 ---
 
-## Project Structure
-
-```
-bloomsearch/
-├── CMakeLists.txt
-├── docker-compose.yml
-├── Dockerfile
-├── README.md
-├── include/
-│   ├── common/
-│   │   ├── date_utils.h
-│   │   ├── logger.h
-│   │   └── search_types.h
-│   ├── crawler/
-│   │   ├── http_fetcher.h
-│   │   ├── robots_parser.h
-│   │   └── url_frontier.h
-│   ├── indexer/
-│   │   ├── ai_detector.h
-│   │   ├── html_parser.h
-│   │   ├── index_builder.h
-│   │   └── tokenizer.h
-│   ├── query/
-│   │   ├── query_parser.h
-│   │   ├── ranker.h
-│   │   └── result_formatter.h
-│   └── storage/
-│       ├── postgres_client.h
-│       ├── rocksdb/
-│       └── s3_client.h
-├── src/
-│   ├── main_crawler.cpp
-│   ├── main_crawler_mt.cpp
-│   ├── main_indexer.cpp
-│   ├── main_query.cpp
-│   └── ... (implementations)
-└── tests/
-    └── ... (test files)
-```
-
----
-
 ## AI Detection
 
 BloomSearch uses three heuristics to estimate AI likelihood:
@@ -261,30 +219,6 @@ Checks for formulaic paragraph starters ("Furthermore", "Additionally", "Moreove
 - `0-20%` - Likely human-written
 - `20-50%` - Mixed signals
 - `50%+` - Likely AI-generated
-
----
-
-## Configuration
-
-### Environment Variables
-
-```bash
-# PostgreSQL
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=searchengine
-POSTGRES_USER=searchuser
-POSTGRES_PASSWORD=searchpass
-
-# MinIO/S3
-S3_ENDPOINT=http://localhost:9000
-S3_ACCESS_KEY=minioadmin
-S3_SECRET_KEY=minioadmin
-S3_BUCKET=bloom-content
-
-# RocksDB
-ROCKSDB_PATH=/data/rocksdb
-```
 
 ---
 
