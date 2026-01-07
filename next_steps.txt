@@ -1,0 +1,3 @@
+This project will be deployed on the cloud in some way. Then I can crawl and index 24/7. You will notice your query engine results suck until that corner of theweb you are searching in has been sufficiently explored. More data == better results. A background ETL process will be created to train AI to detect AI content, right now the heuristics are pretty loose guidelines. Maybe they will prove themselve when more data is collected, this means it's further down the priority list. I also want to create a simple web ui that looks like OG google search, I think it would cool and show off the project well.
+
+Thanks for reading. 
