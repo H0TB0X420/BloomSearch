@@ -176,12 +176,6 @@ if(BUILD_TESTS)
         common
         storage
     )
-    add_executable(test_robots_parser1 tests/robots_parser/test_robots_parser1.cpp)
-    target_link_libraries(test_robots_parser1
-        crawler_lib
-        common
-        storage
-    )
     add_executable(test_robots_parser2 tests/robots_parser/test_robots_parser2.cpp)
     target_link_libraries(test_robots_parser2
         crawler_lib

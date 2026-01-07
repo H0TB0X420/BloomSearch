@@ -216,8 +216,8 @@ std::vector<std::string> Crawler::extract_links(const std::string& html, const s
         std::string href = (*it)[1].str();
         
         if (href.empty() || href[0] == '#' || 
-            href.find("javascript:") == 0 || 
-            href.find("mailto:") == 0) {
+            href.starts_with("javascript:") ||
+            href.starts_with("mailto:")) {
             continue;
         }
         
@@ -232,7 +232,7 @@ std::vector<std::string> Crawler::extract_links(const std::string& html, const s
 }
 
 std::string Crawler::normalize_url(const std::string& url, const std::string& base_url) {
-    if (url.find("http://") == 0 || url.find("https://") == 0) {
+    if (url.starts_with("http://") || url.starts_with("https://")) {
         return url;
     }
     
@@ -253,7 +253,7 @@ std::string Crawler::normalize_url(const std::string& url, const std::string& ba
         base_path = base_url.substr(path_start);
     }
     
-    if (url.find("//") == 0) {
+    if (url.starts_with("//")) {
         return base_scheme + ":" + url;
     }
     

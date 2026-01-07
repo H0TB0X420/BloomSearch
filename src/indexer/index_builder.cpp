@@ -376,16 +376,6 @@ bool IndexBuilder::flush() {
     return success;
 }
 
-uint32_t IndexBuilder::get_document_frequency(const std::string& term) {
-    if (!db_) return 0;
-    
-    auto df = db_->get(df_key(term));
-    if (df) {
-        return static_cast<uint32_t>(std::stoul(*df));
-    }
-    return 0;
-}
-
 void IndexBuilder::load_statistics() {
     if (!db_) return;
     

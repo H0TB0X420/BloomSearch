@@ -33,7 +33,7 @@ public:
         }
         
         // Must be HTTP(S)
-        if (url.find("http://") != 0 && url.find("https://") != 0) {
+        if (!url.starts_with("http://") && !url.starts_with("https://")) {
             return false;
         }
         
@@ -67,7 +67,7 @@ public:
         if (url.length() > MAX_URL_LENGTH) {
             return "too long (" + std::to_string(url.length()) + " chars)";
         }
-        if (url.find("http://") != 0 && url.find("https://") != 0) {
+        if (!url.starts_with("http://") && !url.starts_with("https://")) {
             return "not HTTP(S)";
         }
         if (has_bad_extension(url)) {

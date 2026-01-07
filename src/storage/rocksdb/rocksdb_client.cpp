@@ -209,28 +209,6 @@ void RocksDBClient::iterate_prefix(const std::string& prefix,
     }
 }
 
-std::vector<std::string> RocksDBClient::get_keys_with_prefix(const std::string& prefix) {
-    std::vector<std::string> keys;
-    
-    iterate_prefix(prefix, [&keys](const std::string& key, const std::string&) {
-        keys.push_back(key);
-        return true;
-    });
-    
-    return keys;
-}
-
-std::vector<std::pair<std::string, std::string>> RocksDBClient::get_all_with_prefix(const std::string& prefix) {
-    std::vector<std::pair<std::string, std::string>> results;
-    
-    iterate_prefix(prefix, [&results](const std::string& key, const std::string& value) {
-        results.emplace_back(key, value);
-        return true;
-    });
-    
-    return results;
-}
-
 size_t RocksDBClient::count_prefix(const std::string& prefix) {
     size_t count = 0;
     
@@ -240,12 +218,6 @@ size_t RocksDBClient::count_prefix(const std::string& prefix) {
     });
     
     return count;
-}
-
-void RocksDBClient::compact() {
-    if (db_) {
-        db_->CompactRange(nullptr, nullptr);
-    }
 }
 
 uint64_t RocksDBClient::approximate_size(const std::string& start_key, const std::string& end_key) {

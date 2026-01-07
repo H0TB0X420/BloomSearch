@@ -5,15 +5,15 @@
 
 namespace search {
 
-std::string ResultFormatter::format(SearchResponse& response, int start_rank) {
-    if (response.empty()) {
+std::string ResultFormatter::format(SearchResponse& results, int start_rank) {
+    if (results.empty()) {
         return "No results found.\n";
     }
     
     std::ostringstream out;
     
     int rank = start_rank;
-    for (const auto& result : response.results) {
+    for (const auto& result : results.results) {
         const auto& doc = result.doc;
         
         // Rank and title

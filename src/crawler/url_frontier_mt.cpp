@@ -232,4 +232,21 @@ bool URLFrontierMT::is_shutdown() const {
     return shutdown_;
 }
 
+std::vector<std::string> URLFrontierMT::export_pending() const {
+    std::lock_guard<std::mutex> lock(queue_mutex_);
+    
+    std::vector<std::string> urls;
+    auto queue_copy = queue_;
+    while (!queue_copy.empty()) {
+        urls.push_back(queue_copy.top().url);
+        queue_copy.pop();
+    }
+    
+    return urls;
+}
+
+void URLFrontierMT::import_urls(const std::vector<std::string>& urls) {
+    add_batch(urls, 0);
+}
+
 } // namespace search

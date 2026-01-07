@@ -25,18 +25,14 @@ public:
     RobotsParser() = default;
     
     bool parse(const std::string& content);
-    
-    bool has_agent(std::string agent) const;
-    
+        
     size_t agent_count() const { return rules_.size(); }
-    
-    const AgentRules* get_agent_rules(std::string agent) const;
     
     const AgentRules* get_matching_rules(std::string bot_name = "BloomSearchBot") const;
 
     bool is_allowed(const std::string& url, const std::string& bot_name = "BloomSearchBot") const;
 
-    bool fetch(const std::string& domain, HTTPFetcher& fetcher);
+    bool fetch(const std::string& url, HTTPFetcher& fetcher);
     
     bool is_allowed_url(const std::string& url, HTTPFetcher& fetcher,
                         const std::string& bot_name = "BloomSearchBot");

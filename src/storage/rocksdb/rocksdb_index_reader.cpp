@@ -38,8 +38,8 @@ bool RocksDBIndexReader::open(const std::string& db_path) {
     return true;
 }
 
-bool RocksDBIndexReader::open(RocksDBClient* db) {
-    if (!db || !db->is_open()) {
+bool RocksDBIndexReader::open(RocksDBClient* client) {
+    if (!client || !client->is_open()) {
         last_error_ = "Invalid or closed database";
         return false;
     }
@@ -48,7 +48,7 @@ bool RocksDBIndexReader::open(RocksDBClient* db) {
         close();
     }
     
-    db_ = db;
+    db_ = client;
     owns_db_ = false;
     return true;
 }
@@ -143,7 +143,7 @@ std::vector<Posting> RocksDBIndexReader::get_postings(const std::string& term) c
         }
     }
     
-    for (auto& [doc_id, posting] : aggregated) {
+    for (auto& [_, posting] : aggregated) {
         std::sort(posting.positions.begin(), posting.positions.end());
         result.push_back(posting);
     }

@@ -32,7 +32,7 @@ public:
     
     bool ensure_bucket_exists();
     
-    bool put(const std::string& key, const std::string& content, bool compress = true);
+    bool put(const std::string& key, const std::string& content, bool compress_flag = true);
     
     std::optional<std::string> get(const std::string& key);
     

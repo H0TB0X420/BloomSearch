@@ -12,11 +12,6 @@ QueryParser::QueryParser(std::shared_ptr<TextProcessor> processor)
     : processor_(processor ? processor : std::make_shared<TextProcessor>()) {
 }
 
-void QueryParser::set_enable_stemming(bool enable) {
-    enable_stemming_ = enable;
-    processor_->set_stemming_enabled(enable);
-}
-
 ParsedQuery QueryParser::parse(const std::string& query) {
     ParsedQuery result;
     result.original_query = query;

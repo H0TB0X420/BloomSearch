@@ -22,19 +22,9 @@ public:
     
     std::vector<Token> tokenize(const std::string& text) const;
     
-    std::vector<std::string> tokenize_simple(const std::string& text) const;
-    
-    std::vector<std::string> tokenize_query(const std::string& query) const;
-    
-    std::vector<std::string> generate_bigrams(const std::vector<std::string>& tokens) const;
-    
-    std::vector<std::string> generate_char_ngrams(const std::string& text, size_t n = 3) const;
-    
     void set_min_token_length(size_t len);
     void set_max_token_length(size_t len);
-    void set_apply_stemming(bool apply);
-    void set_remove_stop_words(bool remove);
-    
+        
     void add_stop_word(const std::string& word);
     void add_stop_words(const std::vector<std::string>& words);
     

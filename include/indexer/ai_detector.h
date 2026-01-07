@@ -33,9 +33,6 @@ public:
     float uniformity_score(const std::string& text);
     float repetition_score(const std::string& text);
     
-    // Configure weights (default: 0.4, 0.35, 0.25)
-    void set_weights(float vocab, float uniformity, float repetition);
-
 private:
     float vocab_weight_ = 0.40f;
     float uniformity_weight_ = 0.35f;

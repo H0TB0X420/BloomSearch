@@ -114,7 +114,7 @@ public:
         std::lock_guard<std::mutex> lock(mutex_);
         
         if (cache_.find(domain) == cache_.end()) {
-            cache_[domain] = RobotsParser();
+            cache_.try_emplace(domain);
             std::string robots_url = "https://" + domain + "/robots.txt";
             std::string robots_content;
             if (fetcher.fetch(robots_url, robots_content)) {
@@ -224,7 +224,7 @@ void crawler_worker(
         std::vector<std::string> new_urls;
         for (const auto& link : doc.links) {
             if (link.url.empty()) continue;
-            if (link.url.find("http://") != 0 && link.url.find("https://") != 0) continue;
+            if (!link.url.starts_with("http://") && !link.url.starts_with("https://")) continue;
             
             // Apply URL filter to outgoing links too
             if (URLFilter::is_acceptable(link.url)) {
@@ -425,16 +425,35 @@ int main(int argc, char** argv) {
         
         // URL Frontier (thread-safe)
         URLFrontierMT frontier;
+
         frontier.set_default_delay(std::chrono::milliseconds(default_delay_ms));
         
-        for (const auto& seed : seed_urls) {
-            if (URLFilter::is_acceptable(seed)) {
-                frontier.add(seed, 100);  // High priority for seeds
-                Logger::info("Seed: " + seed);
-            } else {
-                Logger::info("Seed filtered: " + seed + " (" + URLFilter::rejection_reason(seed) + ")");
+        // Load saved frontier if exists (for resuming interrupted crawls)
+        auto saved_frontier = db.load_frontier();
+        if (!saved_frontier.empty()) {
+            std::vector<std::string> urls;
+            for (const auto& entry : saved_frontier) {
+                urls.push_back(entry.url);
             }
+            frontier.import_urls(urls);
+            db.clear_frontier();
+            Logger::info("Resumed crawl with " + std::to_string(urls.size()) + " URLs from saved frontier");
         }
+        
+        // Add seed URLs with high priority (only if we have new seeds)
+        if (!seed_urls.empty() && seed_urls[0] != "https://www.wikipedia.org/") {
+            for (const auto& url : seed_urls) {
+                frontier.add(url, 100);
+            }
+            Logger::info("Added " + std::to_string(seed_urls.size()) + " seed URLs");
+        } else if (saved_frontier.empty()) {
+            // Only add defaults if no saved frontier and no explicit seeds
+            for (const auto& url : seed_urls) {
+                frontier.add(url, 100);
+            }
+            Logger::info("Added " + std::to_string(seed_urls.size()) + " seed URLs");
+        }
+
         
         // Shared resources
         RobotsCache robots_cache;
@@ -490,11 +509,29 @@ int main(int argc, char** argv) {
             }
         }
         
-        // Signal shutdown
+        Logger::info("Shutting down...");
+        
+        // Save frontier state before shutdown (for resuming later)
+        auto pending = frontier.export_pending();
+        if (!pending.empty()) {
+            Logger::info("Saving " + std::to_string(pending.size()) + " pending URLs to database...");
+            std::vector<FrontierEntry> entries;
+            for (const auto& url : pending) {
+                FrontierEntry entry;
+                entry.url = url;
+                entry.domain = URLFrontierMT::extract_domain(url);
+                entry.priority = 0;
+                entries.push_back(entry);
+            }
+            if (db.save_frontier(entries)) {
+                Logger::info("Frontier saved successfully - crawl can be resumed");
+            } else {
+                Logger::error("Failed to save frontier: " + db.last_error());
+            }
+        }
+        
         frontier.shutdown();
         
-        // Wait for workers
-        Logger::info("Waiting for workers to finish...");
         for (auto& worker : workers) {
             if (worker.joinable()) {
                 worker.join();

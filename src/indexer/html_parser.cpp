@@ -176,14 +176,6 @@ bool HTMLParser::is_invisible_tag(int tag) const {
            t == GUMBO_TAG_LINK;
 }
 
-bool HTMLParser::is_boilerplate_tag(int tag) const {
-    GumboTag t = static_cast<GumboTag>(tag);
-    return t == GUMBO_TAG_NAV ||
-           t == GUMBO_TAG_FOOTER ||
-           t == GUMBO_TAG_HEADER ||
-           t == GUMBO_TAG_ASIDE;
-}
-
 std::vector<ExtractedLink> HTMLParser::extract_links(const std::string& html, 
                                                       const std::string& base_url) {
     std::vector<ExtractedLink> links;
@@ -208,8 +200,8 @@ void HTMLParser::extract_links_recursive(const GumboNode* node,
         std::string href = get_attribute(node, "href");
         
         if (!href.empty() && href[0] != '#' &&
-            href.find("javascript:") != 0 &&
-            href.find("mailto:") != 0) {
+            !href.starts_with("javascript:") &&
+            !href.starts_with("mailto:")) {
             
             ExtractedLink link;
             link.url = normalize_url(href, base_url);
@@ -295,7 +287,7 @@ std::string HTMLParser::get_attribute(const GumboNode* node, const char* name) {
 }
 
 std::string HTMLParser::normalize_url(const std::string& url, const std::string& base_url) {
-    if (url.find("http://") == 0 || url.find("https://") == 0) {
+    if (url.starts_with("http://") || url.starts_with("https://")) {
         return url;
     }
     
@@ -317,7 +309,7 @@ std::string HTMLParser::normalize_url(const std::string& url, const std::string&
         base_host = base_url.substr(host_start, path_start - host_start);
     }
     
-    if (url.find("//") == 0) {
+    if (url.starts_with("//")) {
         return base_scheme + ":" + url;
     }
     

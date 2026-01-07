@@ -167,26 +167,6 @@ void test_prefix_iteration(TestResults& results) {
     client.put("doc:2", "metadata2");
     client.put("term:avocado", "doc7,doc8");
     
-    // Get keys with prefix
-    auto term_keys = client.get_keys_with_prefix("term:");
-    print_test(term_keys.size() == 4, "Found 4 term keys", results);
-    
-    auto doc_keys = client.get_keys_with_prefix("doc:");
-    print_test(doc_keys.size() == 2, "Found 2 doc keys", results);
-    
-    // Get all with prefix
-    auto terms = client.get_all_with_prefix("term:a");
-    print_test(terms.size() == 3, "Found 3 terms starting with 'a'", results);
-    
-    // Check values
-    bool found_apple = false;
-    for (const auto& [key, value] : terms) {
-        if (key == "term:apple" && value == "doc1,doc2,doc3") {
-            found_apple = true;
-        }
-    }
-    print_test(found_apple, "Apple term has correct value", results);
-    
     // Count prefix
     size_t term_count = client.count_prefix("term:");
     print_test(term_count == 4, "Count prefix works", results);

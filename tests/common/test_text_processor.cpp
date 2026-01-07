@@ -96,13 +96,6 @@ void test_stop_words(TestResults& results) {
     tp.add_stop_word("bitcoin");
     print_test(tp.is_stop_word("bitcoin"), "Added 'bitcoin' as stop word", results);
     
-    // Remove stop word
-    tp.remove_stop_word("the");
-    print_test(!tp.is_stop_word("the"), "Removed 'the' from stop words", results);
-    
-    // Clear all
-    tp.clear_stop_words();
-    print_test(!tp.is_stop_word("and"), "Cleared all stop words", results);
 }
 
 //=============================================================================
@@ -157,41 +150,6 @@ void test_stemmer_complex(TestResults& results) {
 }
 
 //=============================================================================
-// Test 7: Process (full pipeline)
-//=============================================================================
-void test_process(TestResults& results) {
-    std::cout << "\n--- Test: Full Processing Pipeline ---\n";
-    
-    TextProcessor tp;
-    
-    // Full processing: tokenize + stop words + stem
-    auto tokens1 = tp.process("The quick brown foxes are running");
-    
-    // "The" and "are" should be removed (stop words)
-    // "foxes" -> "fox", "running" -> "run"
-    bool has_the = false;
-    bool has_are = false;
-    bool has_fox = false;
-    bool has_run = false;
-    
-    for (const auto& t : tokens1) {
-        if (t == "the") has_the = true;
-        if (t == "are") has_are = true;
-        if (t == "fox") has_fox = true;
-        if (t == "run") has_run = true;
-    }
-    
-    print_test(!has_the, "'the' removed", results);
-    print_test(!has_are, "'are' removed", results);
-    print_test(has_fox, "'foxes' -> 'fox'", results);
-    print_test(has_run, "'running' -> 'run'", results);
-    
-    // Process single word
-    print_test(tp.process_word("Running") == "run", "process_word normalizes + stems", results);
-    print_test(tp.process_word("THE") == "the", "process_word normalizes (no stop removal)", results);
-}
-
-//=============================================================================
 // Test 8: Configuration Options
 //=============================================================================
 void test_configuration(TestResults& results) {
@@ -205,21 +163,6 @@ void test_configuration(TestResults& results) {
     tp.set_stemming_enabled(true);
     print_test(tp.process_word("running") == "run", "Stemming re-enabled", results);
     
-    // Disable stop word removal
-    tp.set_stop_word_removal_enabled(false);
-    auto tokens = tp.process("the cat");
-    bool has_the = false;
-    for (const auto& t : tokens) {
-        if (t == "the") has_the = true;
-    }
-    print_test(has_the, "Stop word removal disabled", results);
-    
-    // Min/max token length
-    tp.set_stop_word_removal_enabled(true);
-    tp.set_min_token_length(4);
-    auto tokens2 = tp.process("a big cat runs");
-    // "a" and "cat" filtered (< 4 chars after processing)
-    print_test(tokens2.size() == 1, "Min length filter works", results);
 }
 
 //=============================================================================
@@ -272,12 +215,6 @@ void test_edge_cases(TestResults& results) {
     // Mixed
     print_test(tp.normalize("test123test") == "test123test", "Alphanumeric preserved", results);
     
-    // Very long word
-    std::string long_word(200, 'a');
-    tp.set_max_token_length(100);
-    auto tokens = tp.process(long_word);
-    print_test(tokens.empty(), "Filters words exceeding max length", results);
-    
     // Empty after normalization
     print_test(tp.normalize("!!!") == "", "Punctuation-only normalizes to empty", results);
 }
@@ -299,7 +236,6 @@ int main() {
     test_stop_words(results);
     test_stemmer_basic(results);
     test_stemmer_complex(results);
-    test_process(results);
     test_configuration(results);
     test_stemmer_consistency(results);
     test_edge_cases(results);

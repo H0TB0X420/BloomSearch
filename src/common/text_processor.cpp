@@ -55,14 +55,6 @@ void TextProcessor::add_stop_words(const std::vector<std::string>& words) {
     }
 }
 
-void TextProcessor::remove_stop_word(const std::string& word) {
-    stop_words_.erase(normalize(word));
-}
-
-void TextProcessor::clear_stop_words() {
-    stop_words_.clear();
-}
-
 bool TextProcessor::is_stop_word(const std::string& word) const {
     return stop_words_.count(word) > 0;
 }
@@ -118,33 +110,6 @@ std::vector<std::string> TextProcessor::tokenize(const std::string& text) const 
     return tokens;
 }
 
-std::vector<std::string> TextProcessor::process(const std::string& text) const {
-    std::vector<std::string> result;
-    auto tokens = tokenize(text);
-    
-    for (const auto& token : tokens) {
-        // Length filter
-        if (token.length() < min_token_length_ || 
-            token.length() > max_token_length_) {
-            continue;
-        }
-        
-        // Stop word filter
-        if (stop_word_removal_enabled_ && is_stop_word(token)) {
-            continue;
-        }
-        
-        // Stemming
-        std::string processed = stemming_enabled_ ? stem(token) : token;
-        
-        if (!processed.empty()) {
-            result.push_back(processed);
-        }
-    }
-    
-    return result;
-}
-
 std::string TextProcessor::process_word(const std::string& word) const {
     std::string normalized = normalize(word);
     if (normalized.empty()) {
@@ -166,15 +131,15 @@ std::string TextProcessor::stem(const std::string& word) const {
 // Reference: https://tartarus.org/martin/PorterStemmer/
 //=============================================================================
 
-bool TextProcessor::is_consonant(const std::string& word, size_t i) const {
-    if (i >= word.length()) return false;
+bool TextProcessor::is_consonant(const std::string& word, size_t index) const {
+    if (index >= word.length()) return false;
     
-    char c = word[i];
+    char c = word[index];
     switch (c) {
         case 'a': case 'e': case 'i': case 'o': case 'u':
             return false;
         case 'y':
-            return (i == 0) ? true : !is_consonant(word, i - 1);
+            return (index == 0) ? true : !is_consonant(word, index - 1);
         default:
             return true;
     }

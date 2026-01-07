@@ -65,7 +65,6 @@ private:
     std::string trim_whitespace(const std::string& str);
     
     bool is_invisible_tag(int tag) const;
-    bool is_boilerplate_tag(int tag) const;
 };
 
 } // namespace search

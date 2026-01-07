@@ -59,14 +59,8 @@ public:
     
     std::optional<PageRecord> get_page(const std::string& url);
     
-    std::optional<PageRecord> get_page_by_hash(const std::string& url_hash);
-    
-    bool is_crawled(const std::string& url);
-    
     bool mark_crawled(const std::string& url, int status_code, 
                       const std::string& content_hash, int64_t content_size);
-    
-    bool update_ai_score(const std::string& url, float score, const std::string& era);
     
     std::vector<PageRecord> get_unindexed_pages(int limit = 100);
     
@@ -76,15 +70,13 @@ public:
     
     int64_t get_indexed_page_count();
     
-    bool save_frontier(const std::vector<FrontierEntry>& entries);
-    
-    std::vector<FrontierEntry> load_frontier();
-    
-    bool clear_frontier();
-    
     bool execute(const std::string& sql);
     
     const std::string& last_error() const { return last_error_; }
+
+    bool save_frontier(const std::vector<FrontierEntry>& entries);
+    std::vector<FrontierEntry> load_frontier();
+    bool clear_frontier();
 
 private:
     std::unique_ptr<pqxx::connection> conn_;

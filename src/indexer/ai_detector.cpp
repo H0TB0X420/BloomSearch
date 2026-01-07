@@ -6,10 +6,8 @@
 
 namespace search {
 
-AIDetector::AIDetector() {
-    // AI-typical phrases (stemmed/lowercase)
-    // These appear disproportionately in AI-generated text
-    ai_phrases_ = {
+AIDetector::AIDetector() 
+    : ai_phrases_{
         // Overused words
         "delve", "delves", "delving",
         "tapestry", "multifaceted", "nuanced",
@@ -62,10 +60,8 @@ AIDetector::AIDetector() {
         "play a crucial role",
         "plays a crucial role",
         "of paramount importance"
-    };
-    
-    // Common AI paragraph starters
-    ai_starters_ = {
+    },
+    ai_starters_{
         "furthermore",
         "additionally", 
         "moreover",
@@ -96,8 +92,8 @@ AIDetector::AIDetector() {
         "moving on",
         "next",
         "now"
-    };
-}
+    }
+{}
 
 float AIDetector::calculate_score(const std::string& text) {
     if (text.length() < 200) {
@@ -200,7 +196,7 @@ float AIDetector::repetition_score(const std::string& text) {
         
         // Check if starts with AI-typical word
         for (const auto& starter : ai_starters_) {
-            if (first.find(starter) == 0 || 
+            if (first.starts_with(starter) || 
                 first.find(" " + starter) != std::string::npos) {
                 ai_starter_count++;
                 seen_starters.insert(starter);
@@ -223,12 +219,6 @@ float AIDetector::repetition_score(const std::string& text) {
     float score = starter_ratio * (2.0f - uniqueness);
     
     return std::max(0.0f, std::min(1.0f, score));
-}
-
-void AIDetector::set_weights(float vocab, float uniformity, float repetition) {
-    vocab_weight_ = vocab;
-    uniformity_weight_ = uniformity;
-    repetition_weight_ = repetition;
 }
 
 std::vector<std::string> AIDetector::split_sentences(const std::string& text) {

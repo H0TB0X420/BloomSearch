@@ -27,8 +27,6 @@ public:
 
 private:
     static std::string decode_unreserved(const std::string& str);
-    static std::string to_lowercase(const std::string& str);
-    static bool is_valid_scheme(const std::string& scheme);
 };
 
 class URLFrontier {

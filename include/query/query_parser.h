@@ -17,9 +17,7 @@ public:
     ParsedQuery parse(const std::string& query);
     
     const std::string& last_error() const { return last_error_; }
-    
-    void set_enable_stemming(bool enable);
-    
+        
     TextProcessor& processor() { return *processor_; }
     const TextProcessor& processor() const { return *processor_; }
     std::shared_ptr<TextProcessor> shared_processor() { return processor_; }

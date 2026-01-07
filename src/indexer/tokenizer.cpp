@@ -22,16 +22,6 @@ void Tokenizer::set_max_token_length(size_t len) {
     processor_->set_max_token_length(len);
 }
 
-void Tokenizer::set_apply_stemming(bool apply) {
-    apply_stemming_ = apply;
-    processor_->set_stemming_enabled(apply);
-}
-
-void Tokenizer::set_remove_stop_words(bool remove) {
-    remove_stop_words_ = remove;
-    processor_->set_stop_word_removal_enabled(remove);
-}
-
 void Tokenizer::add_stop_word(const std::string& word) {
     processor_->add_stop_word(word);
 }
@@ -95,81 +85,6 @@ std::vector<Token> Tokenizer::tokenize(const std::string& text) const {
     }
     
     return tokens;
-}
-
-std::vector<std::string> Tokenizer::tokenize_simple(const std::string& text) const {
-    auto tokens = tokenize(text);
-    std::vector<std::string> result;
-    result.reserve(tokens.size());
-    
-    for (const auto& token : tokens) {
-        result.push_back(token.text);
-    }
-    
-    return result;
-}
-
-std::vector<std::string> Tokenizer::tokenize_query(const std::string& query) const {
-    std::vector<std::string> tokens;
-    
-    size_t i = 0;
-    while (i < query.size()) {
-        while (i < query.size() && std::isspace(static_cast<unsigned char>(query[i]))) {
-            ++i;
-        }
-        
-        if (i >= query.size()) break;
-        
-        size_t start = i;
-        while (i < query.size() && !std::isspace(static_cast<unsigned char>(query[i]))) {
-            ++i;
-        }
-        
-        std::string token = query.substr(start, i - start);
-        std::string normalized = processor_->normalize(token);
-        
-        if (!normalized.empty()) {
-            std::string final_token = apply_stemming_ ? processor_->stem(normalized) : normalized;
-            if (!final_token.empty()) {
-                tokens.push_back(final_token);
-            }
-        }
-    }
-    
-    return tokens;
-}
-
-std::vector<std::string> Tokenizer::generate_bigrams(const std::vector<std::string>& tokens) const {
-    std::vector<std::string> bigrams;
-    
-    if (tokens.size() < 2) {
-        return bigrams;
-    }
-    
-    bigrams.reserve(tokens.size() - 1);
-    
-    for (size_t i = 0; i < tokens.size() - 1; ++i) {
-        bigrams.push_back(tokens[i] + "_" + tokens[i + 1]);
-    }
-    
-    return bigrams;
-}
-
-std::vector<std::string> Tokenizer::generate_char_ngrams(const std::string& text, size_t n) const {
-    std::vector<std::string> ngrams;
-    
-    std::string normalized = processor_->normalize(text);
-    if (normalized.size() < n) {
-        return ngrams;
-    }
-    
-    ngrams.reserve(normalized.size() - n + 1);
-    
-    for (size_t i = 0; i <= normalized.size() - n; ++i) {
-        ngrams.push_back(normalized.substr(i, n));
-    }
-    
-    return ngrams;
 }
 
 } // namespace search

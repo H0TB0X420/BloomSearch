@@ -12,17 +12,6 @@
 
 namespace search {
 
-std::string URLNormalizer::to_lowercase(const std::string& str) {
-    std::string result = str;
-    std::transform(result.begin(), result.end(), result.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-    return result;
-}
-
-bool URLNormalizer::is_valid_scheme(const std::string& scheme) {
-    return scheme == "http" || scheme == "https";
-}
-
 std::string URLNormalizer::decode_unreserved(const std::string& str) {
     // Decode percent-encoded unreserved characters: A-Z a-z 0-9 - . _ ~
     // These are safe to decode per RFC 3986

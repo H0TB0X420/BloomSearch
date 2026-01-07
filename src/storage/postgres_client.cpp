@@ -193,7 +193,6 @@ std::optional<PageRecord> PostgresClient::get_page(const std::string& url) {
         page.url = result[0][1].as<std::string>();
         page.url_hash = result[0][2].as<std::string>();
         page.domain = result[0][3].as<std::string>();
-        // TODO: Parse crawled_at timestamp
         page.status_code = result[0][5].is_null() ? 0 : result[0][5].as<int>();
         page.content_hash = result[0][6].is_null() ? "" : result[0][6].as<std::string>();
         page.content_size = result[0][7].is_null() ? 0 : result[0][7].as<int64_t>();
@@ -207,46 +206,6 @@ std::optional<PageRecord> PostgresClient::get_page(const std::string& url) {
     } catch (const std::exception& e) {
         last_error_ = e.what();
         return std::nullopt;
-    }
-}
-
-std::optional<PageRecord> PostgresClient::get_page_by_hash(const std::string& url_hash) {
-    if (!is_connected()) return std::nullopt;
-    
-    try {
-        pqxx::work txn(*conn_);
-        
-        auto result = txn.exec_params(
-            "SELECT url FROM pages WHERE url_hash = $1 LIMIT 1",
-            url_hash
-        );
-        
-        if (result.empty()) {
-            return std::nullopt;
-        }
-        
-        return get_page(result[0][0].as<std::string>());
-    } catch (const std::exception& e) {
-        last_error_ = e.what();
-        return std::nullopt;
-    }
-}
-
-bool PostgresClient::is_crawled(const std::string& url) {
-    if (!is_connected()) return false;
-    
-    try {
-        pqxx::work txn(*conn_);
-        
-        auto result = txn.exec_params(
-            "SELECT 1 FROM pages WHERE url = $1 AND crawled_at IS NOT NULL LIMIT 1",
-            url
-        );
-        
-        return !result.empty();
-    } catch (const std::exception& e) {
-        last_error_ = e.what();
-        return false;
     }
 }
 
@@ -292,25 +251,6 @@ bool PostgresClient::mark_crawled(const std::string& url, int status_code,
             status_code,
             content_hash,
             content_size
-        );
-        
-        txn.commit();
-        return true;
-    } catch (const std::exception& e) {
-        last_error_ = e.what();
-        return false;
-    }
-}
-
-bool PostgresClient::update_ai_score(const std::string& url, float score, const std::string& era) {
-    if (!is_connected()) return false;
-    
-    try {
-        pqxx::work txn(*conn_);
-        
-        txn.exec_params(
-            "UPDATE pages SET ai_score = $2, era = $3 WHERE url = $1",
-            url, score, era
         );
         
         txn.commit();

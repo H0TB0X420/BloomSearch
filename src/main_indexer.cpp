@@ -78,7 +78,7 @@ void print_usage(const char* program) {
 int main(int argc, char** argv) {
     int64_t max_pages = -1;
     int batch_size = 100;
-    int progress_interval = 10;
+    const int progress_interval = 10;
     bool test_mode = false;
     
     for (int i = 1; i < argc; ++i) {

@@ -60,15 +60,9 @@ public:
     
     void iterate_prefix(const std::string& prefix,
                        std::function<bool(const std::string&, const std::string&)> callback);
-    
-    std::vector<std::string> get_keys_with_prefix(const std::string& prefix);
-    
-    std::vector<std::pair<std::string, std::string>> get_all_with_prefix(const std::string& prefix);
-    
+        
     size_t count_prefix(const std::string& prefix);
-    
-    void compact();
-    
+        
     uint64_t approximate_size(const std::string& start_key, const std::string& end_key);
     
     const std::string& last_error() const { return last_error_; }

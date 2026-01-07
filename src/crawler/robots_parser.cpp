@@ -92,20 +92,6 @@ namespace search {
         return true;
     }
 
-    bool RobotsParser::has_agent(std::string agent) const {
-        normalize_agent(agent);
-        return rules_.contains(agent);
-    }
-
-    const AgentRules* RobotsParser::get_agent_rules(std::string agent) const {
-        normalize_agent(agent);
-        auto it = rules_.find(agent);
-        if (it != rules_.end()) {
-            return &it->second;
-        }
-        return nullptr;
-    }
-
     const AgentRules* RobotsParser::get_matching_rules(std::string bot_name) const {
         normalize_agent(bot_name);
         auto it = rules_.find(bot_name);

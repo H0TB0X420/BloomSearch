@@ -20,7 +20,7 @@ float Ranker::idf(uint32_t doc_freq, uint64_t total_docs) const {
     float n = static_cast<float>(total_docs);
     float df = static_cast<float>(doc_freq);
     
-    return std::log(1.0f + (n - df + 0.5f) / (df + 0.5f));
+    return std::log1p((n - df + 0.5f) / (df + 0.5f));
 }
 
 float Ranker::bm25_term_score(
@@ -73,7 +73,7 @@ Ranker::collect_candidates(const std::vector<std::string>& terms) {
 }
 
 float Ranker::score_document(
-    uint64_t doc_id,
+    uint64_t /*doc_id*/,
     const std::unordered_map<std::string, Posting>& term_postings,
     const std::vector<std::string>& query_terms,
     uint32_t doc_length,

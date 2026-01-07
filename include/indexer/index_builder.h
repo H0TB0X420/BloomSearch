@@ -101,9 +101,7 @@ public:
     uint64_t document_count() const { return doc_count_; }
     uint64_t term_count() const { return term_count_; }
     uint64_t pending_documents() const { return pending_docs_; }
-    
-    uint32_t get_document_frequency(const std::string& term);
-    
+        
     bool remove_document(uint64_t doc_id);
     bool is_indexed(uint64_t doc_id);
     std::optional<IndexedDocument> get_document(uint64_t doc_id);

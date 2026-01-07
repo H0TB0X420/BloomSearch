@@ -47,6 +47,10 @@ public:
     void shutdown();
     bool is_shutdown() const;
     
+    // Frontier persistence
+    std::vector<std::string> export_pending() const;
+    void import_urls(const std::vector<std::string>& urls);
+    
     struct Stats {
         std::atomic<uint64_t> urls_added{0};
         std::atomic<uint64_t> urls_popped{0};

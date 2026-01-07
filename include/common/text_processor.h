@@ -23,16 +23,10 @@ public:
     
     void add_stop_words(const std::vector<std::string>& words);
     
-    void remove_stop_word(const std::string& word);
-    
-    void clear_stop_words();
-    
     const std::unordered_set<std::string>& stop_words() const { return stop_words_; }
     
     std::vector<std::string> tokenize(const std::string& text) const;
-    
-    std::vector<std::string> process(const std::string& text) const;
-    
+        
     std::string process_word(const std::string& word) const;
     
     void set_min_token_length(size_t len) { min_token_length_ = len; }
