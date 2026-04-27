@@ -1,0 +1,105 @@
+# BloomSearch eval Surface 3 — BEIR SciFact query subset
+# Source: BEIR SciFact, public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/scifact.zip
+# Sampling: 100 query-ids randomly chosen from test qrels, seed=42
+# Columns: query-id<TAB>text
+query-id	text
+13	5% of perinatal mortality is due to low birth weight.
+49	ADAR1 binds to Dicer to cleave pre-miRNA.
+50	AIRE is expressed in some skin tumors.
+51	ALDH1 expression is associated with better breast cancer outcomes.
+54	AMP-activated protein kinase (AMPK) activation increases inflammation-related fibrosis in the lungs.
+94	Albendazole is used to treat lymphatic filariasis.
+124	Antiretroviral therapy reduces rates of tuberculosis across a broad range of CD4 strata.
+127	Arginine 90 in p150n is important for interaction with EB1.
+132	Aspirin inhibits the production of PGE2.
+133	Assembly of invadopodia is triggered by focal generation of phosphatidylinositol-3,4-biphosphate and the activation of the nonreceptor tyrosine kinase Src.
+137	Asymptomatic visual impairment screening in elderly populations does not lead to improved vision.
+142	Autologous transplantation of mesenchymal stem cells causes a higher rate of opportunistic infections than induction therapy with anti-interleukin-2 receptor antibodies.
+143	Autologous transplantation of mesenchymal stem cells causes fewer opportunistic infections than induction therapy with anti-interleukin-2 receptor antibodies.
+185	Breast cancer development is determined exclusively by genetic factors.
+198	CCL19 is absent within dLNs.
+208	CHEK2 is not associated with breast cancer.
+213	CRP is not predictive of postoperative mortality following Coronary Artery Bypass Graft (CABG) surgery.
+217	CX3CR1 on the Th2 cells promotes T cell survival
+219	CX3CR1 on the Th2 cells suppresses airway inflammation.
+230	Carriers of the alcohol aldehyde dehydrogenase deficiency mutation drink less that non-carries.
+239	Cellular aging closely links to an older appearance.
+295	Crosstalk between dendritic cells (DCs) and innate lymphoid cells (ILCs) is important in the regulation of intestinal homeostasis.
+298	Cytochrome c is released from the mitochondrial intermembrane space to cytosol during apoptosis.
+312	De novo assembly of sequence data has more specific contigs than unassembled sequence data.
+324	Deleting Raptor reduces G-CSF levels.
+354	Downregulation and mislocalization of Scribble prevents cell transformation and mammary tumorigenesis.
+380	Enhanced early production of inflammatory chemokines improves viral control in the lung.
+399	Exposure to fine particulate air pollution is relate to anxiety prevalence.
+436	Free histones are degraded by a Rad53-dependent mechanism once DNA has been replicated.
+437	Functional consequences of genomic alterations due to Myelodysplastic syndrome (MDS) are poorly understood due to the lack of an animal model.
+440	Fz/PCP-dependent Pk localizes to the anterior membrane of notochord cells during zebrafish neuralation.
+478	Golli-deficient T-cells prefer to differentiate into an anergic phenotype in the adaptive immune response when there are increased levels of Ca2+ in the cytosol.
+491	HNF4A mutations can cause diabetes in mutant carriers by the age of 14 years
+501	Headaches are not correlated with cognitive impairment.
+502	Healthcare delivery efficiency in crowded delivery centers is impaired by improving structural, logistical, and interpersonal elements.
+513	High cardiopulmonary fitness causes increased mortality rate.
+517	High levels of copeptin decrease risk of diabetes.
+525	Histone demethylase recruitment and a transient decrease in histone methylation is necessary for ligand-dependent induction of transcription by nuclear receptors.
+527	Homozygous deletion of murine Sbds gene from osterix-expressing mesenchymal stem and progenitor cells (MPCs) prevents oxidative stress.
+539	Hypoglycemia increases the risk of dementia.
+544	IFIT1 restricts viral replication by sequestrating mis-capped viral RNAs.
+549	IRG1 has antiviral effects against neurotropic viruses.
+551	ITAM phosphorylation prevents the transfer of the T cell receptor (TCR) signal from the echo-domain to the cytoplasmic tail of the T cell receptor (TCR).
+613	Increased microtubule acetylation repairs LRRK2 Roc-COR domain mutation induced locomotor deficits.
+619	Increased vessel density along with a reduction in fibrosis decreases the efficacy of chemotherapy treatments.
+628	Infection of human T-cell lymphotropic virus type 1 is most frequent in individuals of African origin.
+637	Input from  mental and physical health care professionals is effective at decreasing homelessness.
+649	Integrating classroom-based collaborative learning with Web-based collaborative learning leads to subpar class performance
+693	Leuko-reduced blood reduces infectious complications in red blood cell transfusion.
+716	Low expression of miR7a exerts a biological function in testis.
+718	Low nucleosome occupancy correlates with low methylation levels across species.
+721	Lupus-prone mice infected with curliproducing bacteria have higher autoantibody titers compared to controls.
+728	Ly6C hi monocytes have a lower inflammatory capacity than Ly6C lo monocytes.
+768	Mercaptopurine is anabolized into the inactive methylmercaptopurine by thiopurine methyltrasnferase (TPMT).
+808	Most termination events in Okazaki fragments are sequence specific.
+823	N348I mutations cause resistance to zidovudine (AZT).
+831	NF2 (Merlin) prevents phosphorylation and subsequent cytoplasmic sequestration of YAP in Drosophila.
+852	Non-invasive ventilation use should be decreased if there is inadequate response to conventional treatment.
+859	Normal expression of RUNX1 has tumor-promoting effects.
+880	Occupancy of ribosomes by IncRNAs mirror 5 0-UTRs
+882	Omnivores produce less trimethylamine N-oxide from dietary I-carnitine than vegetarians.
+887	Only a minority of cells survive development after differentiation into stress-resistant spores.
+922	Patients in stable partnerships have a faster progression from HIV to AIDS.
+956	Pleiotropic coupling of GLP-1R to intracellular effectors promotes distinct profiles of cellular signaling.
+960	Polymeal nutrition reduces cardiovascular mortality.
+967	Pretreatment with the Arp2/3 inhibitor CK-666 affects lamelliopodia formation.
+971	Primary cervical cancer screening with HPV detection has higher longitudinal sensitivity than conventional cytology to detect cervical intraepithelial neoplasia grade 2.
+1014	Rapamycin decreases the concentration of triacylglycerols in fruit flies.
+1029	Reduced responsiveness to interleukin-2 in regulatory T cells is associated with greater resistance to autoimmune diseases such as Type 1 Diabetes.
+1062	S-nitrosylated GAPDH physiologically transnitrosylates histone deacetylases.
+1086	Sildenafil improves erectile function in men who experience sexual dysfunction as a result of the use of SSRI antidepressants.
+1088	Silencing of Bcl2 is important for the maintenance and progression of tumors.
+1089	Smc5/6 engagment drives the activation of SUMO E3 ligase Mms21 by ATP-dependent remolding.
+1099	Statins decrease blood cholesterol.
+1100	Statins increase blood cholesterol.
+1104	Stroke patients with prior use of direct oral anticoagulants have a lower risk of in-hospital mortality than stroke patients with prior use of warfarin.
+1107	Subcutaneous fat depots undergo extensive browning processes after cold exposure.
+1121	Synaptic activity enhances local release of brain derived neurotrophic factor from postsynaptic dendrites.
+1130	T regulatory cells (tTregs) lacking αvβ8 are more adept at suppressing pathogenic T-cell responses during active inflammation.
+1140	Taking 400mg of α-tocopheryl acetate helps to prevent prostate cancer.
+1197	The availability of safe places to study is not effective at decreasing homelessness.
+1199	The benefits of colchicine were achieved with effective widespread use of secondary prevention strategies such as high-dose statins.
+1202	The center of the granuloma in an immune cell induces a pro-inflammatory immune response.
+1204	The combination of H3K4me3 and H3K79me2 is found in quiescent hair follicle stem cells.
+1216	The extracellular domain of TMEM27 is cleaved in human beta cells.
+1225	The locus rs647161 is associated with colorectal carcinoma.
+1241	The myocardial lineage develops from cardiac progenitors of mesodermal origin.
+1262	The repair of Cas9-induced double strand breaks in human DNA is error-prone.
+1266	The risk of breast cancer among parous women increases with placental weight of pregnancies, and this association is strongest for premenopausal breast cancer.
+1270	The risk of male prisoners harming themselves is ten times that of female prisoners.
+1273	The sliding activity of kinesin-8 protein Kip3 promotes bipolar spindle assembly.
+1274	The tip of the inner tube of the toxic type VI secretion system (T6SS) antibacterial effector in Escherichia coli (E. coli) carries toxic effector proteins.
+1281	The ureABIEFGH gene cluster is induced by nickel (II) ion.
+1282	Therapeutic use of the drug Dapsone to treat pyoderma gangrenous is based on anecdotal evidence.
+1290	There is an inverse relationship between hip fractures and statin use.
+1320	Transplanted human glial progenitor cells are incapable of forming a neural network with host animals' neurons.
+1335	UCB T cells maintain high TCR diversity after transplantation.
+1362	Venules have a larger lumen diameter than arterioles.
+1370	Vitamin D deficiency is unrelated to birth weight.
+1385	cSMAC formation enhances weak ligand signalling.

@@ -1,0 +1,205 @@
+# BloomSearch eval Surface 2 — wellformedness subset
+# Source: google-research-datasets/query-wellformedness, test.tsv
+# Sampling: 100 with mean_score>=0.8 (well-formed), 100 with mean_score<=0.2 (not), seed=42
+# Columns: query<TAB>label<TAB>score   (label: 1=well-formed, 0=not)
+query	label	score
+What country did cotton wool originate from ?	1	1.0000
+How do frogs make a baby ?	1	1.0000
+How do you convert 1000 mcg to grams ?	1	1.0000
+Has same-sex marriage been legalized in Georgia ?	1	1.0000
+Where are all the games in buildabearville for the jungle quest ?	1	0.8000
+What is deviant art all about ?	1	0.8000
+What is the meaning of the foreign word coup d' etat ?	1	1.0000
+Can you give a sentence using the word condone ?	1	1.0000
+How can the size of an economy be measured ?	1	1.0000
+In what ways can mass be measured ?	1	1.0000
+How would you deal with a personality clash with your boss ?	1	1.0000
+Which cycle is the sun in ?	1	1.0000
+What are the three inhabited countries in africa ?	1	0.8000
+Where is the Oldest church in the US ?	1	1.0000
+What is the value of a ted williams m300 shotgun ?	1	0.8000
+What is the meaning of papal bull ?	1	0.8000
+What caused fertility rates to drop ?	1	1.0000
+How do you dispute a bank levy ?	1	1.0000
+Is Mt Fuji active or dormant ?	1	0.8000
+How could your mood be affected if the blood passing throught the brain contained nicotine ?	1	0.8000
+What is wide range indicator paper ?	1	1.0000
+Are deserts and mountains landforms ?	1	1.0000
+How many miles is 1040 acres ?	1	0.8000
+How do you share a room on Zwinky ?	1	1.0000
+What kinds of organisms are producers in most ecosystems ?	1	1.0000
+What popular forests are in louisisana ?	1	0.8000
+Which snake has longest fangs in the world ?	1	0.8000
+How can you improve hand eye cordination ?	1	0.8000
+What population did washington have in 2005 ?	1	1.0000
+The hoover dam is located on what border ?	1	1.0000
+How much is a gram of headies weed ?	1	0.8000
+Who invented echos ?	1	0.8000
+What is the value of a 1936 Australian half penny ?	1	1.0000
+Is jello made from bull horns ?	1	1.0000
+What happened to cartoon network on basic cable ?	1	1.0000
+How do you install a CD player into a 93 Mitsubishi mirage ls ?	1	0.8000
+Do hamsters have rods or cones ?	1	1.0000
+What are the requirements to work as an mta bus operator ?	1	1.0000
+How much does a kitchen planner earn ?	1	1.0000
+What is interesting about Mercury besides the magnetic field ?	1	1.0000
+Where is the location of the fuel filter on a 2001 corolla LE ?	1	0.8000
+What is the value of a playstation ?	1	1.0000
+Can you buy Ranch Dressing in the United Kingdom ?	1	1.0000
+What is the reason why kepler died ?	1	1.0000
+What is similar between a mineral and a rock ?	1	0.8000
+What is slipknot 's new album ?	1	1.0000
+What happened in 1620 's slavery ?	1	0.8000
+Who was considered to be the greatest of all japanese poets ?	1	1.0000
+What is heredity within a species ?	1	0.8000
+What are the 5 major rivers in New Hampshire ?	1	1.0000
+What kind of teeth are canines ?	1	1.0000
+What is the APA format of writing ?	1	1.0000
+What is rectal bleeding during pregnancy ?	1	0.8000
+What is alexander hamilton most famous for ?	1	1.0000
+What is kate carry 's email address ?	1	0.8000
+What happened to Aztec culture ?	1	0.8000
+How many groups are in a plant ?	1	0.8000
+What constitutional principal was laid down in Baker v Carr ?	1	0.8000
+How did jackie robinson make an impact in american history ?	1	1.0000
+Are CCTV cameras important ?	1	1.0000
+In what monument is President Grant buried ?	1	0.8000
+Where do you catch shinks on pokemon saphire ?	1	0.8000
+In what country is the city of St Petersburg ?	1	1.0000
+What occurs to an RBC that is in a hypotonic solution ?	1	0.8000
+How much money do neurosurgeons earn a week ?	1	0.8000
+How much does a Canadian stamp cost right now ?	1	1.0000
+What is the role of the endocrine glands on kidney function ?	1	1.0000
+Where do veterinarians work other than privately ?	1	1.0000
+What year did the peloponnesian war start and end ?	1	1.0000
+Who is the main figure associated with in christianity ?	1	1.0000
+Which region became famous in romania because of count dracula ?	1	1.0000
+How do you remove the starter from a 1997 Cadillac DeVille without removing the whole engine ?	1	1.0000
+Where did melons originally come from ?	1	1.0000
+What currency do they use in Colombia ?	1	0.8000
+Where can you find Images of solitary animals ?	1	0.8000
+How many pictures will a 4GB memory card in a 10 mega pixel digital camera hold ?	1	1.0000
+How do Zebras communicate using sound ?	1	1.0000
+Where is the turn signal relay located on a 2002 volkswagen beetle ?	1	1.0000
+What is the state fish for wyoming ?	1	1.0000
+Does mercury have a seasonal change ?	1	0.8000
+What cigars did winston churchill smoke ?	1	1.0000
+How many electrons are being shared between the atoms in the oxygen atom ?	1	0.8000
+How many seats are in the Nissan Versa Hatchback ?	1	0.8000
+What does the name kira mean in spanish ?	1	1.0000
+What is the school mascot of princeton college ?	1	1.0000
+What inventions were made in 1880 - 1920 ?	1	1.0000
+How many suction cups are on octopus tentacles ?	1	0.8000
+What nation was lead by haile selassie ?	1	1.0000
+What happened to Tibet in 1945 ?	1	1.0000
+What are five specific foods people like to eat in Madagascar ?	1	1.0000
+Where was west side story made ?	1	0.8000
+What is the use of tulsi ?	1	0.8000
+What did samuel adams do in his lifetime ?	1	1.0000
+How do you set up timing on a mazda b2200 ?	1	1.0000
+How does a rooster meet a hen to mate with ?	1	0.8000
+What countries border the nation laos ?	1	0.8000
+What it the abbreviation for microgram ?	1	1.0000
+What is the typical day for an orthopedic surgeon ?	1	0.8000
+What killed Dean Martin ?	1	1.0000
+What is the population of Boise Idaho ?	1	0.8000
+What are selena gomezs favorite number ?	0	0.0000
+Samuel Hopkins Adams what did he write about ?	0	0.0000
+What 9is the statute of limitations in Florida for obaining goods with a worthless check in the amount of 89.00 ?	0	0.0000
+How is your salary when you are an accountant ?	0	0.2000
+How do you cheat the mouth swab for thc ?	0	0.2000
+Pros and cons of oil supertanksf ?	0	0.2000
+What is taylor lautners full names ?	0	0.2000
+How many survivors were on the tianic ?	0	0.2000
+What is 5 examples of infectious disease ?	0	0.2000
+Another word for bane ?	0	0.0000
+A dependent clause used to desribe a verb adjective or adverb ?	0	0.0000
+What comunacation did Mexico invent ?	0	0.2000
+What is maryland truely known for ?	0	0.2000
+Who african american inventors ?	0	0.0000
+Some Interesting facts on hinduism ?	0	0.0000
+Origin and meaning of first name corey ?	0	0.2000
+Where is the capus location for The Ohio State University ?	0	0.0000
+What do palnts release during photosynthesis ?	0	0.2000
+What ddirection is spain from france ?	0	0.0000
+How many ki ng snakes are in this world ?	0	0.2000
+How high is mount everest nepal ?	0	0.0000
+How much does a grang piano cost ?	0	0.0000
+How it does circulation work in the body of a frogs ?	0	0.0000
+Ingrigents and formular to make pva paint ?	0	0.2000
+How much does metal roofing cost a square ?	0	0.0000
+Instrument that can play the lowest ?	0	0.0000
+Are the twins american league or ntional ?	0	0.2000
+Business etiquette in germany suggests that you ?	0	0.2000
+What was the cost of a galon of gas in 1948 ?	0	0.2000
+File can not be writing on to compact disc ?	0	0.2000
+What is corporate mergers ?	0	0.2000
+Show pichers of taylor swifts house ?	0	0.0000
+What kind of language does assyrians speak ?	0	0.2000
+What is DeAndre Ramone Way fan number ?	0	0.2000
+The value of us apache dollar ?	0	0.2000
+Does micheal phelps has a girlfriend ?	0	0.2000
+How do you change the remove the serpentine belt on a Dodge Grand Caravan ?	0	0.2000
+Why nwas gettysburg important ?	0	0.0000
+How much do flamingos weig ?	0	0.0000
+Professor Layton and the Diabolical Box plus puzzle 59 ?	0	0.0000
+Where abouts in seafoam sland is articuno ?	0	0.0000
+Wis orlando blooms mother ?	0	0.0000
+How much weight is the camel ?	0	0.0000
+How much do coroners make year ?	0	0.0000
+The size of a dime ?	0	0.0000
+How much money does a open heart sergon earn ?	0	0.2000
+What is madame 's hobbies and interests ?	0	0.2000
+1946 one penny georgeivs VI coin value ?	0	0.0000
+What is the organs for the respiratory system ?	0	0.2000
+Who were George washinngtons advisors ?	0	0.2000
+Californias two state senators ?	0	0.2000
+What day did and year did dr suess die ?	0	0.2000
+Information of Chess ?	0	0.0000
+How many bones does a bald eagle ?	0	0.0000
+Where does corbin bleu live cuz you want to go ther please tell you he lives in cartersville georgia ?	0	0.0000
+What is the legal age to smoke cigar ?	0	0.0000
+What is diastolic nd systolic ?	0	0.0000
+What castro mails kennedy ?	0	0.2000
+2003 lancer evolution 8 fuse box ?	0	0.0000
+Where is oil filter on malibu 2006 lt ?	0	0.0000
+What 3 countries are on scandinavia ?	0	0.2000
+The important of pyramid in their civilization ?	0	0.0000
+How many people in china are Taoism ?	0	0.2000
+What is comet and how does it made of ?	0	0.0000
+Status of economy in Israel ?	0	0.2000
+How do geologist classify mineral ?	0	0.2000
+How do you beat mthtoty on poptropicacom ?	0	0.0000
+String instruments that are not in a orcchestra ?	0	0.2000
+Be able to recognize example of prey adaption ?	0	0.0000
+All awards rl stine has won ?	0	0.0000
+Finger nail polish ingrediants ?	0	0.0000
+Oregon 's state tree ?	0	0.0000
+What are the subtrates from the enzyme rubp caboxylase ?	0	0.0000
+How much chemical engineers are paid ?	0	0.0000
+Manuel A Roxas Autobiography ?	0	0.2000
+You have questions about your maltipoo ?	0	0.2000
+Five components of a reflex arc ?	0	0.0000
+City would you find the Eiffel Tower ?	0	0.0000
+The famous countries of asia ?	0	0.2000
+Size of the universe today ?	0	0.0000
+Sarah palin 's Job experience ?	0	0.0000
+How many reindeer holves are they ?	0	0.0000
+At what level thouse charmander evolve ?	0	0.0000
+Ulysses S Grants Accoplishments in office ?	0	0.0000
+Incidence and prevalence of infectious diarrhea in philippines ?	0	0.0000
+Turn signal flasher location 2001 pontiac firebird ?	0	0.2000
+Political instability and its impact on business ?	0	0.2000
+What are the cure for scurvy ?	0	0.0000
+How much does 5 inch by 10 in piece of wood weigh ?	0	0.1667
+The communicative approach definition ?	0	0.2000
+What did michael jackson do to become famouse ?	0	0.0000
+What is dominican 's exports ?	0	0.0000
+What is mean by pergaulan bebas ?	0	0.2000
+Can migranes and dizziness mean your pregnant ?	0	0.2000
+What are the reasons in seasons ?	0	0.0000
+Where the energy content is measured in ?	0	0.0000
+What are the important of friction ?	0	0.0000
+1which is the longest glacier ?	0	0.0000
+Queen mattress dimension ?	0	0.0000
+Name the product in moss peat ?	0	0.0000

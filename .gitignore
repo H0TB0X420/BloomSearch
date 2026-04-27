@@ -24,6 +24,9 @@ logs/
 *.log
 *.db
 
+# Eval outputs (source data is tracked, generated results are not)
+evals/results/
+
 # Docker volumes (if you mount locally)
 postgres_data/
 minio_data/
