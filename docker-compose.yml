@@ -97,12 +97,11 @@ services:
       dockerfile: Dockerfile
     container_name: search_dev
     volumes:
-      - ./src:/app/src
-      - ./include:/app/include
-      - ./tests:/app/tests
-      - ./sql:/app/sql
-      - ./CMakeLists.txt:/app/CMakeLists.txt
-      - ./build:/app/build
+      # Mount the whole project so third_party/, evals/, scripts/, etc. are
+      # all visible in-container, and host-side file replacements (atomic
+      # rename via editors) propagate without stale-inode issues that the
+      # earlier per-file/per-dir bind mounts caused on macOS Docker.
+      - .:/app
       - rocksdb_data:/data/rocksdb
     working_dir: /app
     environment:

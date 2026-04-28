@@ -130,12 +130,35 @@ target_link_libraries(query_lib
     ${ROCKSDB_LIBRARIES}
 )
 
+# ─── llama.cpp (pinned to b8925, see CLAUDE.md D14) ──────────────────────────
+# CPU-only inference, static, no examples/tests/server/tools/curl/openssl.
+# Each machine's Docker container builds with GGML_NATIVE for its own SIMD.
+set(LLAMA_BUILD_COMMON   OFF CACHE BOOL "")
+set(LLAMA_BUILD_TESTS    OFF CACHE BOOL "")
+set(LLAMA_BUILD_TOOLS    OFF CACHE BOOL "")
+set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "")
+set(LLAMA_BUILD_SERVER   OFF CACHE BOOL "")
+set(LLAMA_OPENSSL        OFF CACHE BOOL "")
+set(LLAMA_CURL           OFF CACHE BOOL "")
+set(GGML_CUDA      OFF CACHE BOOL "")
+set(GGML_HIP       OFF CACHE BOOL "")
+set(GGML_VULKAN    OFF CACHE BOOL "")
+set(GGML_METAL     OFF CACHE BOOL "")
+set(GGML_BLAS      OFF CACHE BOOL "")
+set(GGML_KOMPUTE   OFF CACHE BOOL "")
+set(GGML_OPENCL    OFF CACHE BOOL "")
+set(GGML_SYCL      OFF CACHE BOOL "")
+set(GGML_NATIVE    ON  CACHE BOOL "")
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
+add_subdirectory(third_party/llama.cpp EXCLUDE_FROM_ALL)
+
 # LLM library (Phase 1+ side quest)
 add_library(llm_lib STATIC
     src/llm/mock_llm.cpp
 )
 target_link_libraries(llm_lib
     common
+    llama
 )
 
 # Crawler executable
