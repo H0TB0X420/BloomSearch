@@ -130,6 +130,14 @@ target_link_libraries(query_lib
     ${ROCKSDB_LIBRARIES}
 )
 
+# LLM library (Phase 1+ side quest)
+add_library(llm_lib STATIC
+    src/llm/mock_llm.cpp
+)
+target_link_libraries(llm_lib
+    common
+)
+
 # Crawler executable
 add_executable(crawler src/main_crawler.cpp)
 target_link_libraries(crawler
@@ -326,4 +334,8 @@ if(BUILD_TESTS)
     target_link_libraries(test_content_date common)
     add_executable(test_ai_detector tests/indexer/test_ai_detector.cpp src/indexer/ai_detector.cpp)
     target_link_libraries(test_ai_detector indexer_lib common)
+
+    # LLM tests (Phase 1+)
+    add_executable(test_mock_llm tests/llm/test_mock_llm.cpp)
+    target_link_libraries(test_mock_llm llm_lib common)
 endif()
