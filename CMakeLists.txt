@@ -155,6 +155,8 @@ add_subdirectory(third_party/llama.cpp EXCLUDE_FROM_ALL)
 # LLM library (Phase 1+ side quest)
 add_library(llm_lib STATIC
     src/llm/mock_llm.cpp
+    src/llm/chat_templates.cpp
+    src/llm/local_llm.cpp
 )
 target_link_libraries(llm_lib
     common
@@ -361,4 +363,12 @@ if(BUILD_TESTS)
     # LLM tests (Phase 1+)
     add_executable(test_mock_llm tests/llm/test_mock_llm.cpp)
     target_link_libraries(test_mock_llm llm_lib common)
+    add_executable(test_chat_templates tests/llm/test_chat_templates.cpp)
+    target_link_libraries(test_chat_templates llm_lib common)
+    add_executable(test_local_llm tests/llm/test_local_llm.cpp)
+    target_link_libraries(test_local_llm llm_lib common)
+    add_executable(test_utf8 tests/llm/test_utf8.cpp)
+    target_link_libraries(test_utf8 llm_lib common)
+    add_executable(test_local_llm_smoke tests/llm/test_local_llm_smoke.cpp)
+    target_link_libraries(test_local_llm_smoke llm_lib common llama)
 endif()
